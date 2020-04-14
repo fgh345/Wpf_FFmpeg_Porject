@@ -1,0 +1,18 @@
+配置属性 调试 工作目录 可以设置dll位置
+
+C/C++ 常规引入 附加目录 添加include路径
+
+链接器 常规引入 附加目录 添加lib路
+
+链接器 输入添加 所有的lib
+
+avcodec.lib
+avdevice.lib
+avfilter.lib
+avformat.lib
+avutil.lib
+postproc.lib
+swresample.lib
+swscale.lib
+SDL.lib
+SDLmain.lib
