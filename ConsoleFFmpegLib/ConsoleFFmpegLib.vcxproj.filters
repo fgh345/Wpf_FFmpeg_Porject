@@ -18,7 +18,7 @@
     <ClInclude Include="ffmpegnativefun.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="CameraLib.h">
+    <ClInclude Include="FFmpegReadCameraZ.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -26,13 +26,10 @@
     <ClCompile Include="FFmpegReadcamera.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="CameraLib.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="ConsoleFFmpegLib.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="start.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="FFmpegReadCameraZ.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

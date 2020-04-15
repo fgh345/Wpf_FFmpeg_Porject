@@ -1,12 +1,10 @@
 #include <iostream>
-#include "CameraLib.h"
+#include "FFmpegReadCameraZ.h"
+
 
 int main() {
 
-
-	CameraLib cl = CameraLib();
-
-	cl.start();
+	initReadCameraZ();
 
 	return 0;
 }

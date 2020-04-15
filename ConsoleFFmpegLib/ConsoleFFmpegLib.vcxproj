@@ -152,14 +152,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="CameraLib.h" />
     <ClInclude Include="ffmpegnativefun.h" />
+    <ClInclude Include="FFmpegReadCameraZ.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="CameraLib.cpp" />
-    <ClCompile Include="ConsoleFFmpegLib.cpp" />
     <ClCompile Include="FFmpegReadcamera.cpp" />
     <ClCompile Include="start.cpp" />
+    <ClCompile Include="FFmpegReadCameraZ.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
