@@ -35,7 +35,7 @@ void initReadCameraZ() {
 
 	AVInputFormat* ifmt = av_find_input_format("dshow");
 	//Set own video device's name
-	if (avformat_open_input(&aVFormatContext, "video=USB2.0 Camera", ifmt, NULL) != 0) {
+	if (avformat_open_input(&aVFormatContext, "video=Surface Camera Front", ifmt, NULL) != 0) {
 		printf("Couldn't open input stream.\n");
 		return;
 	}
@@ -85,32 +85,52 @@ void initReadCameraZ() {
 
 	//unsigned char *out_buffer=(unsigned char *)av_malloc(avpicture_get_size(AV_PIX_FMT_YUV420P, pCodecCtx->width, pCodecCtx->height));
 	//avpicture_fill((AVPicture *)pFrameYUV, out_buffer, AV_PIX_FMT_YUV420P, pCodecCtx->width, pCodecCtx->height);
-	//SDL----------------------------
-	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER)) {
-		printf("Could not initialize SDL - %s\n", SDL_GetError());
-		return;
-	}
+	
+	//SDL配置开始----------------------------
+
 	int screen_w = 0, screen_h = 0;
 	//SDL_Surface* screen;
 	screen_w = aVCodecContext->width;
 	screen_h = aVCodecContext->height;
 
-	SDL_Init(SDL_INIT_VIDEO);
+	//将要渲染的窗口
+	SDL_Window* window = NULL;
 
-	SDL_Window* screen = SDL_CreateWindow("My Game Window",
-		SDL_WINDOWPOS_UNDEFINED,
-		SDL_WINDOWPOS_UNDEFINED,
-		screen_w, screen_h,
-		SDL_WINDOW_OPENGL);
+	//窗口含有的surface
+	SDL_Surface* screenSurface = NULL;
 
-	if (!screen) {
-		printf("SDL: could not set video mode - exiting:%s\n", SDL_GetError());
+	//初始化SDL
+	if (SDL_Init(SDL_INIT_VIDEO) < 0)
+	{
+		printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
 		return;
 	}
 
-	SDL_Renderer* sdl_Renderer = SDL_CreateRenderer(screen,-1, SDL_RENDERER_ACCELERATED);
+	//创建 window
+	window = SDL_CreateWindow("SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, screen_w, screen_h, SDL_WINDOW_SHOWN);
+	if (window == NULL)
+	{
+		printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
+		return;
+	}
 
-	SDL_RenderPresent(sdl_Renderer);
+	//获取 window surface
+	screenSurface = SDL_GetWindowSurface(window);
+
+	//用白色填充surface
+	SDL_FillRect(screenSurface, NULL, SDL_MapRGB(screenSurface->format, 0xFF, 0xFF, 0xFF));
+
+	//更新surface
+	SDL_UpdateWindowSurface(window);
+
+	//延迟两秒
+	SDL_Delay(2000);
+
+	//销毁 window
+	SDL_DestroyWindow(window);
+
+	//退出 SDL subsystems
+	SDL_Quit();
 
 	printf("end!");
 }
@@ -122,7 +142,7 @@ void show_dshow_device() {
 	av_dict_set(&options, "list_devices", "true", 0);
 	AVInputFormat* iformat = av_find_input_format("dshow");
 	printf("========Device Info=============\n");
-	avformat_open_input(&pFormatCtx, "video=dummy", iformat, &options);
+	avformat_open_input(&pFormatCtx, "video=Surface Camera Front", iformat, &options);
 	printf("================================\n");
 }
 
@@ -133,7 +153,7 @@ void show_dshow_device_option() {
 	av_dict_set(&options, "list_options", "true", 0);
 	AVInputFormat* iformat = av_find_input_format("dshow");
 	printf("========Device Option Info======\n");
-	avformat_open_input(&pFormatCtx, "video=Integrated Camera", iformat, &options);
+	avformat_open_input(&pFormatCtx, "video=Surface Camera Front", iformat, &options);
 	printf("================================\n");
 }
 
