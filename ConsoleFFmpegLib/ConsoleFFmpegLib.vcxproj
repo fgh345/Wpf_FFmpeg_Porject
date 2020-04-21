@@ -158,7 +158,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ConsoleFFmpegLib.cpp" />
-    <ClCompile Include="FFmpegReadcamera.cpp" />
     <ClCompile Include="SDL_LoadImg.cpp" />
     <ClCompile Include="start.cpp" />
     <ClCompile Include="FFmpegReadCameraZ.cpp" />

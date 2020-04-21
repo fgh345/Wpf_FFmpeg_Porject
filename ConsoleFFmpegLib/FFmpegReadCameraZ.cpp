@@ -143,8 +143,8 @@ int initFFmpeg() {
 
 	av_dict_set_int(&frcz_options, "rtbufsize", 3041280 * 100, 0);//Ä¬ÈÏ´óÐ¡3041280
 
-	//Set own video device's name              Surface Camera Front
-	if (avformat_open_input(&frcz_aVFormatContext, "video=USB2.0 Camera", frcz_aVInputFormat, &frcz_options) != 0) {
+	//Set own video device's name              Surface Camera Front   USB2.0 Camera
+	if (avformat_open_input(&frcz_aVFormatContext, "video=Surface Camera Front", frcz_aVInputFormat, &frcz_options) != 0) {
 		printf("Couldn't open input stream.\n");
 		return -1;
 	}
