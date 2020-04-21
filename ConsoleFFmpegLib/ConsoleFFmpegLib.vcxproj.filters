@@ -26,9 +26,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="FFmpegReadcamera.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="start.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
@@ -36,6 +33,12 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="SDL_LoadImg.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ConsoleFFmpegLib.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="FFmpegReadcamera.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

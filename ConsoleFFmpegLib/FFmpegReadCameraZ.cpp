@@ -11,15 +11,44 @@ extern "C"
 	#include "SDL.h"
 };
 
+//命名前缀 frcz_
+
+//我们要渲染到的窗口
+SDL_Window* frcz_window = NULL;
+
+int frcz_screen_w = 0, frcz_screen_h = 0;
+
+//The surface contained by the window
+SDL_Surface* frcz_screenSurface = NULL;
+
+//The window renderer
+SDL_Renderer* frcz_Renderer = NULL;
+
+//Current displayed texture
+SDL_Texture* frcz_Texture = NULL;
+
+//循环标记
+bool frcz_isQuit = false;
+
+//事件句柄
+SDL_Event frcz_event;
+
+AVFrame* frcz_aVframe = NULL;
+AVCodec* frcz_aVCodec = NULL;
+AVCodecContext* frcz_aVCodecContext = NULL;
+AVFormatContext* frcz_aVFormatContext = NULL;
+AVDictionary* frcz_options = NULL;
+AVPacket* frcz_packet = NULL;
+
+//流队列中，视频流所在的位置
+int frcz_video_index = -1;
 
 void initReadCameraZ() {
 
 	printf("start!\n");
 
-	AVFormatContext* aVFormatContext = avformat_alloc_context();
-	int				i, videoindex;
-	AVCodecContext* aVCodecContext = avcodec_alloc_context3(NULL);
-	AVCodec* aVCodec;
+	frcz_aVFormatContext = avformat_alloc_context();
+	frcz_aVCodecContext = avcodec_alloc_context3(NULL);
 
 	avformat_network_init();
 
@@ -27,112 +56,146 @@ void initReadCameraZ() {
 	avdevice_register_all();
 
 	//Show Dshow Device
-	show_dshow_device();
+	//show_dshow_device();
 	//Show Device Options
 	//show_dshow_device_option();
 	//Show VFW Options
 	//show_vfw_device();
 
-	AVInputFormat* ifmt = av_find_input_format("dshow");
-	//Set own video device's name              Surface Camera Front
-	if (avformat_open_input(&aVFormatContext, "video=USB2.0 Camera", ifmt, NULL) != 0) {
-		printf("Couldn't open input stream.\n");
-		return;
-	}
-
-	if (avformat_find_stream_info(aVFormatContext, NULL) < 0)
+	if (initFFmpeg()!=0)
 	{
-		printf("Couldn't find stream information.\n");
+		printf("initFFmpeg error!");
 		return;
 	}
 
-	videoindex = -1;
-	for (i = 0; i < aVFormatContext->nb_streams; i++)
-		if (aVFormatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
-		{
-			videoindex = i;
-			break;
-		}
-	if (videoindex == -1)
-	{
-		printf("Couldn't find a video stream.\n");
-		return;
-	}
-
-	avcodec_parameters_to_context(aVCodecContext, aVFormatContext->streams[videoindex]->codecpar);
-
-	if (aVCodecContext == NULL)
-	{
-		printf("Could not allocate AVCodecContext\n");
-		return;
-	}
-
-	aVCodec = avcodec_find_decoder(aVCodecContext->codec_id);
-	if (aVCodec == NULL)
-	{
-		printf("Codec not found.\n");
-		return;
-	}
-	if (avcodec_open2(aVCodecContext, aVCodec, NULL) < 0)
-	{
-		printf("Could not open codec.\n");
-		return;
-	}
-
-	AVFrame* pFrame, * pFrameYUV;
-	pFrame = av_frame_alloc();
-	pFrameYUV = av_frame_alloc();
-
-	//unsigned char *out_buffer=(unsigned char *)av_malloc(avpicture_get_size(AV_PIX_FMT_YUV420P, pCodecCtx->width, pCodecCtx->height));
-	//avpicture_fill((AVPicture *)pFrameYUV, out_buffer, AV_PIX_FMT_YUV420P, pCodecCtx->width, pCodecCtx->height);
 	
 	//SDL配置开始----------------------------
 
-	int screen_w = 0, screen_h = 0;
+
 	//SDL_Surface* screen;
-	screen_w = aVCodecContext->width;
-	screen_h = aVCodecContext->height;
+	frcz_screen_w = frcz_aVCodecContext->width;
+	frcz_screen_h = frcz_aVCodecContext->height;
 
-	//将要渲染的窗口
-	SDL_Window* window = NULL;
 
-	//窗口含有的surface
-	SDL_Surface* screenSurface = NULL;
-
-	//初始化SDL
-	if (SDL_Init(SDL_INIT_VIDEO) < 0)
+	//Start up SDL and create window
+	if (!initSDLWindow())
 	{
-		printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
-		return;
+		printf("Failed to initialize!\n");
 	}
-
-	//创建 window
-	window = SDL_CreateWindow("SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, screen_w, screen_h, SDL_WINDOW_SHOWN);
-	if (window == NULL)
+	else
 	{
-		printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
-		return;
+
+		//Create renderer for window
+		//frcz_Renderer = SDL_CreateRenderer(frcz_window, -1, SDL_RENDERER_ACCELERATED);
+		//if (frcz_Renderer == NULL)
+		//{
+		//	printf("Renderer could not be created! SDL Error: %s\n", SDL_GetError());
+		//	return;
+		//}
+		//else
+		//{
+		//	//Initialize renderer color
+		//	SDL_SetRenderDrawColor(frcz_Renderer, 0xFF, 0xFF, 0xFF, 0xFF);
+
+
+		//}
+
+
+		//While application is running
+		while (!frcz_isQuit)
+		{
+			//Handle events on queue
+			while (SDL_PollEvent(&frcz_event) != 0)
+			{
+				//User requests quit
+				if (frcz_event.type == SDL_QUIT)
+				{
+					frcz_isQuit = true;
+				}
+			}
+
+
+			if (read_frame_by_dshow() == 0) {
+				loadCamera();
+			}
+
+			//Clear screen
+			//SDL_RenderClear(frcz_Renderer);
+
+			////Render texture to screen
+			//SDL_RenderCopy(frcz_Renderer, frcz_Texture, NULL, NULL);
+
+			////Update screen
+			//SDL_RenderPresent(frcz_Renderer);
+
+			//Update the surface
+			SDL_UpdateWindowSurface(frcz_window);
+		}
 	}
-
-	//获取 window surface
-	screenSurface = SDL_GetWindowSurface(window);
-
-	//用白色填充surface
-	SDL_FillRect(screenSurface, NULL, SDL_MapRGB(screenSurface->format, 0xFF, 0xFF, 0xFF));
-
-	//更新surface
-	SDL_UpdateWindowSurface(window);
-
-	//延迟两秒
-	SDL_Delay(2000);
-
-	//销毁 window
-	SDL_DestroyWindow(window);
-
-	//退出 SDL subsystems
-	SDL_Quit();
+	closeWindow();
 
 	printf("end!");
+}
+
+int initFFmpeg() {
+
+	AVInputFormat* frcz_aVInputFormat = av_find_input_format("dshow");
+
+	av_dict_set_int(&frcz_options, "rtbufsize", 3041280 * 100, 0);//默认大小3041280
+
+	//Set own video device's name              Surface Camera Front
+	if (avformat_open_input(&frcz_aVFormatContext, "video=USB2.0 Camera", frcz_aVInputFormat, &frcz_options) != 0) {
+		printf("Couldn't open input stream.\n");
+		return -1;
+	}
+
+	if (avformat_find_stream_info(frcz_aVFormatContext, NULL) < 0)
+	{
+		printf("Couldn't find stream information.\n");
+		return -1;
+	}
+
+	int i = 0;
+	for (i = 0; i < frcz_aVFormatContext->nb_streams; i++)
+		if (frcz_aVFormatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
+		{
+			frcz_video_index = i;
+			break;
+		}
+	if (frcz_video_index == -1)
+	{
+		printf("Couldn't find a video stream.\n");
+		return -1;
+	}
+
+	avcodec_parameters_to_context(frcz_aVCodecContext, frcz_aVFormatContext->streams[frcz_video_index]->codecpar);
+
+	if (frcz_aVCodecContext == NULL)
+	{
+		printf("Could not allocate AVCodecContext\n");
+		return -1;
+	}
+
+	frcz_aVCodec = avcodec_find_decoder(frcz_aVCodecContext->codec_id);
+	if (frcz_aVCodec == NULL)
+	{
+		printf("Codec not found.\n");
+		return -1;
+	}
+	if (avcodec_open2(frcz_aVCodecContext, frcz_aVCodec, NULL) < 0)
+	{
+		printf("Could not open codec.\n");
+		return -1;
+	}
+
+	frcz_aVframe = av_frame_alloc();
+
+	frcz_packet = av_packet_alloc();
+
+	if (!frcz_packet)
+		return -1;
+
+	return 0;
 }
 
 //Show Dshow Device
@@ -164,4 +227,122 @@ void show_vfw_device() {
 	printf("========VFW Device Info======\n");
 	avformat_open_input(&pFormatCtx, "list", iformat, NULL);
 	printf("=============================\n");
+}
+
+//初始化SDL窗口
+bool initSDLWindow()
+{
+	//Initialization flag
+	bool success = true;
+
+	//Initialize SDL
+	if (SDL_Init(SDL_INIT_VIDEO) < 0)
+	{
+		printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
+		success = false;
+	}
+	else
+	{
+		//Create window
+		frcz_window = SDL_CreateWindow("SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, frcz_screen_w, frcz_screen_h, SDL_WINDOW_SHOWN);
+		if (frcz_window == NULL)
+		{
+			printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
+			success = false;
+		}
+		else
+		{
+			//Get window surface
+			frcz_screenSurface = SDL_GetWindowSurface(frcz_window);
+			//Fill the surface white
+			SDL_FillRect(frcz_screenSurface, NULL, SDL_MapRGB(frcz_screenSurface->format, 0xFF, 0xFF, 0xFF));
+		}
+	}
+
+	return success;
+}
+
+
+bool loadCamera()
+{
+	printf("loadCamera\n");
+
+
+	
+
+	return true;
+}
+
+void closeWindow()
+{
+	//Deallocate surface
+	//SDL_FreeSurface(gHelloWorld);
+	//gHelloWorld = NULL;
+
+	//Destroy window
+	SDL_DestroyWindow(frcz_window);
+	frcz_window = NULL;
+
+	//Quit SDL subsystems
+	SDL_Quit();
+}
+
+void loadTexture()
+{
+
+	if (frcz_screenSurface == NULL)
+	{
+		printf("Unable to load image SDL_image Error\n");
+	}
+	else
+	{
+		//Create texture from surface pixels
+		frcz_Texture = SDL_CreateTextureFromSurface(frcz_Renderer, frcz_screenSurface);
+		if (frcz_Texture == NULL)
+		{
+			printf("Unable to create texture from! SDL Error: %s\n", SDL_GetError());
+		}
+
+		//Get rid of old loaded surface
+		SDL_FreeSurface(frcz_screenSurface);
+	}
+
+}
+
+
+//读取一帧
+int read_frame_by_dshow() {
+
+	int ret = -1;
+
+	//从packet中解出来的原始视频帧
+	frcz_aVframe = av_frame_alloc();//返回一个填充默认值的AVFrame
+
+	if (av_read_frame(frcz_aVFormatContext, frcz_packet) >= 0) {
+		//av_read_frame:  根据AVFormatContext 读取packet信息  
+
+		if (frcz_packet->stream_index == frcz_video_index)//对比packet->stream_index 的流类型
+		{
+
+			//解码。输入为packet，输出为original_video_frame
+			if (avcodec_send_packet(frcz_aVCodecContext, frcz_packet) == 0)//向解码器(AVCodecContext)发送需要解码的数据包(packet),0 表示解码成功
+			{
+				ret = avcodec_receive_frame(frcz_aVCodecContext, frcz_aVframe);//AVCodecContext* video_codec_ctx;
+				//avcodec_receive_frame: 从解码器获取解码后的一帧,0表是解释成功
+
+				if (ret == 0)//0表是解析成功
+				{
+
+					//SDL_CreateTexture();
+					//SDL_UpdateYUVTexture();
+
+				}
+			}
+		}
+	}
+
+	av_packet_unref(frcz_packet);
+	av_free(frcz_aVframe);
+
+	return ret;
 }

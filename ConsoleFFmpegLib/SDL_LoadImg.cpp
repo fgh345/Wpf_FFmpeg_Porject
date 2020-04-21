@@ -1,5 +1,4 @@
 #include "SDL_LoadImg.h"
-
 //м╥нд╪Ч
 #include <SDL.h>
 #include <stdio.h>
@@ -24,7 +23,6 @@ bool quit = false;
 
 //Event handler
 SDL_Event e;
-
 
 void initSDL_LoadImg() {
 
