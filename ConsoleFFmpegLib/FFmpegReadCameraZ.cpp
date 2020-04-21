@@ -29,13 +29,13 @@ void initReadCameraZ() {
 	//Show Dshow Device
 	show_dshow_device();
 	//Show Device Options
-	show_dshow_device_option();
+	//show_dshow_device_option();
 	//Show VFW Options
 	//show_vfw_device();
 
 	AVInputFormat* ifmt = av_find_input_format("dshow");
-	//Set own video device's name
-	if (avformat_open_input(&aVFormatContext, "video=Surface Camera Front", ifmt, NULL) != 0) {
+	//Set own video device's name              Surface Camera Front
+	if (avformat_open_input(&aVFormatContext, "video=USB2.0 Camera", ifmt, NULL) != 0) {
 		printf("Couldn't open input stream.\n");
 		return;
 	}
@@ -142,7 +142,7 @@ void show_dshow_device() {
 	av_dict_set(&options, "list_devices", "true", 0);
 	AVInputFormat* iformat = av_find_input_format("dshow");
 	printf("========Device Info=============\n");
-	avformat_open_input(&pFormatCtx, "video=Surface Camera Front", iformat, &options);
+	avformat_open_input(&pFormatCtx, "video=USB2.0 Camera", iformat, &options);
 	printf("================================\n");
 }
 
@@ -153,7 +153,7 @@ void show_dshow_device_option() {
 	av_dict_set(&options, "list_options", "true", 0);
 	AVInputFormat* iformat = av_find_input_format("dshow");
 	printf("========Device Option Info======\n");
-	avformat_open_input(&pFormatCtx, "video=Surface Camera Front", iformat, &options);
+	avformat_open_input(&pFormatCtx, "video=USB2.0 Camera", iformat, &options);
 	printf("================================\n");
 }
 

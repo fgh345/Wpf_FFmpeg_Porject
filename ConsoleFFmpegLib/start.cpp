@@ -1,10 +1,14 @@
 #include <iostream>
 #include "FFmpegReadCameraZ.h"
+#include "SDL_LoadImg.h"
 
 
 int main() {
 
-	initReadCameraZ();
+	//initReadCameraZ();
+
+	initSDL_LoadImg();
+
 
 	return 0;
 }

@@ -21,6 +21,9 @@
     <ClInclude Include="FFmpegReadCameraZ.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="SDL_LoadImg.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="FFmpegReadcamera.cpp">
@@ -30,6 +33,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="FFmpegReadCameraZ.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="SDL_LoadImg.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

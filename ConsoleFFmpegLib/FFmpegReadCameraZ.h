@@ -1,6 +1,6 @@
 #pragma once
 
-//人口
+//入口
 void initReadCameraZ();
 
 //打印出所有的驱动名称
