@@ -52,7 +52,8 @@ SDL_Rect frcz_sdlRect;
 int frcz_video_out_buffer_size = 0; //视频输出buffer 大小
 uint8_t* frcz_video_out_buffer;//视频输出buffer
 
-char frcz_filepath[] = "C:\\Users\\Youzh\\Videos\\jxyy.mp4";
+//char frcz_filepath[] = "C:\\Users\\Youzh\\Videos\\jxyy.mp4"; //读取本地文件地址
+FILE* frcz_YUV_FILE;
 
 void initReadCameraZ() {
 
@@ -126,10 +127,10 @@ int initFFmpeg() {
 
 	AVInputFormat* frcz_aVInputFormat = av_find_input_format("dshow");
 
-	av_dict_set_int(&frcz_options, "rtbufsize", 3041280 * 100, 0);//默认大小3041280
+	av_dict_set_int(&frcz_options, "rtbufsize", 3041280 * 1, 0);//默认大小3041280
 
 	//Set own video device's name              Surface Camera Front   USB2.0 Camera
-	if (avformat_open_input(&frcz_aVFormatContext, "video=USB2.0 Camera", frcz_aVInputFormat, &frcz_options) != 0) {
+	if (avformat_open_input(&frcz_aVFormatContext, "video=Surface Camera Front", frcz_aVInputFormat, &frcz_options) != 0) {
 		printf("Couldn't open input stream.\n");
 		return -1;
 	}
@@ -303,8 +304,14 @@ bool initSDLWindow()
 
 bool loadCamera()
 {
-	//printf("frame:%s\n", frcz_video_out_buffer);
 
+	sws_scale(frcz_swsContext,
+		(const uint8_t* const*)frcz_aVframe->data,
+		frcz_aVframe->linesize,
+		0,
+		frcz_aVCodecContext->height,
+		frcz_aVframeYUV->data,
+		frcz_aVframeYUV->linesize);
 	
 	
 	//SDL_UpdateYUVTexture(frcz_Texture, &frcz_sdlRect,
@@ -312,9 +319,42 @@ bool loadCamera()
 	//	frcz_aVframeYUV->data[1], frcz_aVframeYUV->linesize[1],
 	//	frcz_aVframeYUV->data[2], frcz_aVframeYUV->linesize[2]);
 	
+	//printf("data:%6s --- buffer:%6s \n", frcz_aVframeYUV->data[0], frcz_video_out_buffer);
+
 	SDL_UpdateTexture(frcz_Texture, &frcz_sdlRect, frcz_aVframeYUV->data[0], frcz_aVframeYUV->linesize[0]);
 
 	return true;
+}
+
+void saveYUVFile() {
+
+	int err = fopen_s(&frcz_YUV_FILE, "CameraFrame.yuv", "wb");//打开文件流
+
+	int i = 0;
+	//unsigned char* tempptr = NULL;
+	uint8_t* tempptr = frcz_aVframe->data[0];
+
+	//printf("height:%d\n", original_video_frame->height);
+	//printf("width:%d\n", original_video_frame->width);
+	//printf("linesize0:%d\n", original_video_frame->linesize[0]);
+	//printf("linesize1:%d\n", original_video_frame->linesize[1]);
+	//printf("linesize2:%d\n", original_video_frame->linesize[2]);
+
+	//for (i = 0; i < frcz_aVframe->height; i++) {
+	//	fwrite(tempptr, 1, frcz_aVframe->width, out_FILE);     //Y 
+	//	//printf("tempptr:%s\n", tempptr);
+	//	tempptr += frcz_aVframe->linesize[0];
+	//}
+	//tempptr = frcz_aVframe->data[1];
+	//for (i = 0; i < frcz_aVframe->height / 2; i++) {
+	//	fwrite(tempptr, 1, frcz_aVframe->width / 2, out_FILE);   //U
+	//	tempptr += frcz_aVframe->linesize[1];
+	//}
+	//tempptr = frcz_aVframe->data[2];
+	//for (i = 0; i < frcz_aVframe->height / 2; i++) {
+	//	fwrite(tempptr, 1, frcz_aVframe->width / 2, out_FILE);   //V
+	//	tempptr += frcz_aVframe->linesize[2];
+	//}
 }
 
 void closeWindow()
@@ -352,13 +392,6 @@ int read_frame_by_dshow() {
 				//avcodec_receive_frame: 从解码器获取解码后的一帧,0表是解释成功
 				if (ret ==0)
 				{
-					sws_scale(frcz_swsContext,
-						(const uint8_t* const*)frcz_aVframe->data,
-						frcz_aVframe->linesize,
-						0, 
-						frcz_aVCodecContext->height,
-						frcz_aVframeYUV->data,
-						frcz_aVframeYUV->linesize);
 
 					loadCamera();
 				}

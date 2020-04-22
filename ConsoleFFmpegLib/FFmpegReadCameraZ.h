@@ -23,5 +23,8 @@ void closeWindow();
 //加载相机
 bool loadCamera();
 
+//保存为YUV格式文件
+void saveYUVFile();
+
 //读取一帧
 int read_frame_by_dshow();
