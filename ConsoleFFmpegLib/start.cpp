@@ -1,6 +1,7 @@
 #include <iostream>
 #include "FFmpegReadCameraZ.h"
 #include "SDL_LoadImg.h"
+#include "ConsoleFFmpegLib.h"
 
 
 int main() {
@@ -9,6 +10,7 @@ int main() {
 
 	//initSDL_LoadImg();
 
+	//cffStart();
 
 	return 0;
 }

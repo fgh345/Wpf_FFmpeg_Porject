@@ -2,16 +2,17 @@
 //
 
 #include <iostream>
-#include "ffmpegnativefun.h"
+#include "ConsoleFFmpegLib.h"
 
 extern "C" {
 #include "libavcodec/avcodec.h"
 #include "libavformat/avformat.h"  
 #include "libswscale/swscale.h"  
 #include "libavutil/imgutils.h"  
-#include "libswresample/swresample.h"
 #include "libavdevice/avdevice.h"
 }
+
+//#include "libswresample/swresample.h"
 
 AVFormatContext* aVFormatContext;
 
@@ -51,25 +52,48 @@ uint64_t out_ch_layout = AV_CH_LAYOUT_STEREO;//输出的声道布局：立体声
 
 //FILE* out_FILE;
 
-int main2()
+
+int cffStart()
 {
     std::cout << "Start!\n";
 
 	//char url[] = "rtmp://live.hkstv.hk.lxdns.com/live/hks";
 
 	//char url[] = "video=Intel(R) AVStream Camera";
-	char url[] = "D:\\Vedio\\RainCity.mp4";
+	char url[] = "C:\\Users\\Youzh\\Videos\\jxyy.mp4";
 	int init_ret = init_ffmpeg(url);
 	if (init_ret >= 0)
 	{
-		while (read_frame() < 0)//读取一帧，直到读取到数据
+		while (1)//读取一帧，直到读取到数据
 		{
-			std::cout << "未读取到数据\n";
+			int ret = read_frame();
+			if (ret==0)
+			{
+				std::cout << get_video_frame();
+				//break;
+			}
+			else
+			{
+				printf("未读取到!");
+			}
+			
 		}
 
+		//while (1)//读取一帧，直到读取到数据
+		//{
+		//	int ret = read_frame();
+		//	if (ret == 2)
+		//	{
+		//		std::cout << get_video_frame();
+		//		break;
+		//	}
+
+		//}
+
+
 		//printf("高度:%d  宽度:%d  缓存大小:%d", get_video_height(), get_video_width(), get_video_buffer_size());
-		std::cout << "\n=================================\n";
-		std::cout << get_video_frame();//打印出来，虽然打印出来的东西看不懂，但是证明已经获取到一帧的数据了
+		//std::cout << "\n=================================\n";
+		//std::cout << get_video_frame();//打印出来，虽然打印出来的东西看不懂，但是证明已经获取到一帧的数据了
 		std::cout << "\nEND";
 	}
 	else
@@ -142,9 +166,6 @@ int init_ffmpeg(char* url) {
 	//输出缓存
 	video_out_buffer = new uint8_t[video_out_buffer_size];
 
-	printf_s("video_out_buffer_size:%d \n", video_out_buffer_size);
-
-
 	//准备一些参数，在视频格式转换后，参数将被设置值  这里从源码看 是将 video_out_buffer 填入 video_out_frame->data 里面
 	//所以后面操作 video_out_frame->data 会影响video_out_buffer 
 	av_image_fill_arrays(
@@ -199,9 +220,9 @@ int init_ffmpeg(char* url) {
 	sample_rate = audio_AVCodecContext->sample_rate;//输入的采样率
 	uint64_t in_ch_layout = audio_AVCodecContext->channel_layout;//输入的声道布局
 
-	audio_SwrContext = swr_alloc();
-	swr_alloc_set_opts(audio_SwrContext, out_ch_layout, AVSampleFormat::AV_SAMPLE_FMT_S16, sample_rate, in_ch_layout, in_sample_fmt, sample_rate, 0, NULL);
-	swr_init(audio_SwrContext);
+	//audio_SwrContext = swr_alloc();
+	//swr_alloc_set_opts(audio_SwrContext, out_ch_layout, AVSampleFormat::AV_SAMPLE_FMT_S16, sample_rate, in_ch_layout, in_sample_fmt, sample_rate, 0, NULL);
+	//swr_init(audio_SwrContext);
 
 	nb_channels = av_get_channel_layout_nb_channels(out_ch_layout);//获取声道个数
 	audio_out_buffer = (uint8_t*)av_malloc(sample_rate * 2);//存储pcm数据
@@ -218,8 +239,7 @@ int init_ffmpeg(char* url) {
 int read_frame() {
 	int ret = -1;
 
-	int got_picture;
-	int got_frame;
+	//int got_frame;
 
 	//从packet中解出来的原始视频帧
 	AVFrame* original_video_frame = av_frame_alloc();//返回一个填充默认值的AVFrame
@@ -235,10 +255,10 @@ int read_frame() {
 			//解码。输入为packet，输出为original_video_frame
 			if (avcodec_send_packet(video_AVCodecContext, aVPacket) == 0)//向解码器(AVCodecContext)发送需要解码的数据包(packet),0 表示解码成功
 			{
-				got_picture = avcodec_receive_frame(video_AVCodecContext, original_video_frame);//AVCodecContext* video_codec_ctx;
+				ret = avcodec_receive_frame(video_AVCodecContext, original_video_frame);//AVCodecContext* video_codec_ctx;
 				//avcodec_receive_frame: 从解码器获取解码后的一帧,0表是解释成功
 
-				if (got_picture == 0)//0表是解释成功
+				if (ret == 0)//0表是解释成功
 				{
 
 #pragma region 下面是将 frame存成yuv格式文件
@@ -278,7 +298,6 @@ int read_frame() {
 						video_out_AVFrame->data,//转码后的数据
 						video_out_AVFrame->linesize);
 
-					ret = 2;
 				}
 			}
 		}
@@ -292,11 +311,11 @@ int read_frame() {
 
 			while (avcodec_receive_frame(audio_AVCodecContext, original_audio_frame) == 0) {
 
-				swr_convert(audio_SwrContext,//音频转换上下文
-					&audio_out_buffer,//输出缓存
-					sample_rate * 2,//每次输出大小
-					(const uint8_t**)original_audio_frame->data,//输入数据
-					original_audio_frame->nb_samples);//输入
+				//swr_convert(audio_SwrContext,//音频转换上下文
+				//	&audio_out_buffer,//输出缓存
+				//	sample_rate * 2,//每次输出大小
+				//	(const uint8_t**)original_audio_frame->data,//输入数据
+				//	original_audio_frame->nb_samples);//输入
 
 				audio_out_buffer_size = av_samples_get_buffer_size(NULL, nb_channels, original_audio_frame->nb_samples, AVSampleFormat::AV_SAMPLE_FMT_S16, 1);
 				ret = 1;
@@ -313,7 +332,7 @@ int read_frame() {
 //释放资源
 void release() {
 	sws_freeContext(video_SwsContext);
-	swr_free(&audio_SwrContext);
+	//swr_free(&audio_SwrContext);
 
 	av_free(video_out_AVFrame);
 

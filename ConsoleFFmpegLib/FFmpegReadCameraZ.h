@@ -20,9 +20,6 @@ bool initSDLWindow();
 //关闭SDL窗口
 void closeWindow();
 
-//Loads individual image as texture
-void loadTexture();
-
 //加载相机
 bool loadCamera();
 
