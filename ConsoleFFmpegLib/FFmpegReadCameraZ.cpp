@@ -127,10 +127,10 @@ int initFFmpeg() {
 
 	AVInputFormat* frcz_aVInputFormat = av_find_input_format("dshow");
 
-	av_dict_set_int(&frcz_options, "rtbufsize", 3041280 * 1, 0);//默认大小3041280
+	av_dict_set_int(&frcz_options, "rtbufsize", 3041280 * 10, 0);//默认大小3041280
 
 	//Set own video device's name              Surface Camera Front   USB2.0 Camera
-	if (avformat_open_input(&frcz_aVFormatContext, "video=Surface Camera Front", frcz_aVInputFormat, &frcz_options) != 0) {
+	if (avformat_open_input(&frcz_aVFormatContext, "video=USB2.0 Camera", frcz_aVInputFormat, &frcz_options) != 0) {
 		printf("Couldn't open input stream.\n");
 		return -1;
 	}
@@ -179,6 +179,9 @@ int initFFmpeg() {
 		printf("Could not open codec.\n");
 		return -1;
 	}
+
+	
+	printf("pix_format %d\n", frcz_aVCodecContext->pix_fmt);
 
 	frcz_screen_w = frcz_aVCodecContext->width;
 	frcz_screen_h = frcz_aVCodecContext->height;
@@ -331,7 +334,7 @@ void saveYUVFile() {
 	int err = fopen_s(&frcz_YUV_FILE, "CameraFrame.yuv", "wb");//打开文件流
 
 	int i = 0;
-	//unsigned char* tempptr = NULL;
+
 	uint8_t* tempptr = frcz_aVframe->data[0];
 
 	//printf("height:%d\n", original_video_frame->height);
@@ -340,21 +343,20 @@ void saveYUVFile() {
 	//printf("linesize1:%d\n", original_video_frame->linesize[1]);
 	//printf("linesize2:%d\n", original_video_frame->linesize[2]);
 
-	//for (i = 0; i < frcz_aVframe->height; i++) {
-	//	fwrite(tempptr, 1, frcz_aVframe->width, out_FILE);     //Y 
-	//	//printf("tempptr:%s\n", tempptr);
-	//	tempptr += frcz_aVframe->linesize[0];
-	//}
-	//tempptr = frcz_aVframe->data[1];
-	//for (i = 0; i < frcz_aVframe->height / 2; i++) {
-	//	fwrite(tempptr, 1, frcz_aVframe->width / 2, out_FILE);   //U
-	//	tempptr += frcz_aVframe->linesize[1];
-	//}
-	//tempptr = frcz_aVframe->data[2];
-	//for (i = 0; i < frcz_aVframe->height / 2; i++) {
-	//	fwrite(tempptr, 1, frcz_aVframe->width / 2, out_FILE);   //V
-	//	tempptr += frcz_aVframe->linesize[2];
-	//}
+	for (i = 0; i < frcz_aVframe->height; i++) {
+		fwrite(tempptr, 1, frcz_aVframe->width, frcz_YUV_FILE);     //Y 
+		tempptr += frcz_aVframe->linesize[0];
+	}
+	tempptr = frcz_aVframe->data[1];
+	for (i = 0; i < frcz_aVframe->height / 2; i++) {
+		fwrite(tempptr, 1, frcz_aVframe->width / 2, frcz_YUV_FILE);   //U
+		tempptr += frcz_aVframe->linesize[1];
+	}
+	tempptr = frcz_aVframe->data[2];
+	for (i = 0; i < frcz_aVframe->height / 2; i++) {
+		fwrite(tempptr, 1, frcz_aVframe->width / 2, frcz_YUV_FILE);   //V
+		tempptr += frcz_aVframe->linesize[2];
+	}
 }
 
 void closeWindow()
@@ -393,7 +395,8 @@ int read_frame_by_dshow() {
 				if (ret ==0)
 				{
 
-					loadCamera();
+					//loadCamera();
+					saveYUVFile();
 				}
 				else {
 					printf("没读取到!");
