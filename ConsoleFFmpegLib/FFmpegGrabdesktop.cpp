@@ -18,7 +18,7 @@
  * 在Linux下可以使用x11grab录制屏幕。
  * 在MacOS下可以使用avfoundation录制屏幕。
  *
- */
+
 
 
 #include <stdio.h>
@@ -280,4 +280,4 @@ int main(int argc, char* argv[])
 
 	return 0;
 }
-
+ */

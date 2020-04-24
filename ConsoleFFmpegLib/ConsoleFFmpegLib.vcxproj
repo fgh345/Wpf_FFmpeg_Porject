@@ -153,12 +153,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="ConsoleFFmpegLib.h" />
-    <ClInclude Include="ffmpegnativefun.h" />
     <ClInclude Include="FFmpegReadCameraZ.h" />
     <ClInclude Include="SDL_LoadImg.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ConsoleFFmpegLib.cpp" />
+    <ClCompile Include="FFmpegStreamer.cpp" />
     <ClCompile Include="SDL_LoadImg.cpp" />
     <ClCompile Include="start.cpp" />
     <ClCompile Include="FFmpegReadCameraZ.cpp" />

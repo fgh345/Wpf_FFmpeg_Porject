@@ -1,6 +1,6 @@
 /**
  * FFmpegÍÆËÍRTMP
- */
+
 
 #include <stdio.h>
 
@@ -129,7 +129,7 @@ int main(int argc, char* argv[])
 
 		in_stream  = ifmt_ctx->streams[pkt.stream_index];
 		out_stream = ofmt_ctx->streams[pkt.stream_index];
-		/* copy packet */
+		// copy packet 
 		//Convert PTS/DTS
 		pkt.pts = av_rescale_q_rnd(pkt.pts, in_stream->time_base, out_stream->time_base, (AVRounding)(AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX));
 		pkt.dts = av_rescale_q_rnd(pkt.dts, in_stream->time_base, out_stream->time_base, (AVRounding)(AV_ROUND_NEAR_INF|AV_ROUND_PASS_MINMAX));
@@ -155,7 +155,7 @@ int main(int argc, char* argv[])
 	av_write_trailer(ofmt_ctx);
 end:
 	avformat_close_input(&ifmt_ctx);
-	/* close output */
+// close output 
 	if (ofmt_ctx && !(ofmt->flags & AVFMT_NOFILE))
 		avio_close(ofmt_ctx->pb);
 	avformat_free_context(ofmt_ctx);
@@ -166,5 +166,5 @@ end:
 	return 0;
 }
 
-
+*/
 

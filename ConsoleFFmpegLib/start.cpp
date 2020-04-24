@@ -6,7 +6,7 @@
 
 int main() {
 
-	initReadCameraZ();
+	startReadCameraZ();
 
 	//initSDL_LoadImg();
 
