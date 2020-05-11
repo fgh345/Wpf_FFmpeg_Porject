@@ -70,9 +70,9 @@ void startReadCameraZ() {
 
 	int err = fopen_s(&frcz_YUV_FILE, "CameraFrame.yuv", "wb+");//打开文件流
 
-	//frcz_open_window_fun();
+	frcz_open_window_fun();
 	
-	frcz_open_rtmp_fun();
+	//frcz_open_rtmp_fun();
 
 	frcz_release();
 	printf("end!");
