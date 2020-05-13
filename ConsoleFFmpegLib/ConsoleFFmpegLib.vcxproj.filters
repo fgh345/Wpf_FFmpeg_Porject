@@ -24,6 +24,9 @@
     <ClInclude Include="ConsoleFFmpegLib.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="FFMpegAudioPlay.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="start.cpp">
@@ -38,7 +41,7 @@
     <ClCompile Include="ConsoleFFmpegLib.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="FFmpegStreamer.cpp">
+    <ClCompile Include="FFMpegAudioPlay.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
