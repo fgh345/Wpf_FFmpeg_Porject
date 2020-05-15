@@ -347,8 +347,7 @@ int read_frame_by_dshow() {
 	frcz_aVframe = av_frame_alloc();//返回一个填充默认值的AVFrame
 
 	if (av_read_frame(frcz_aVFormatContext, frcz_packet) >= 0) {
-		//av_read_frame:  根据AVFormatContext 读取packet信息  
-
+		//av_read_frame:  根据AVFormatContext 读取packet信息
 		if (frcz_packet->stream_index == frcz_video_index)//对比packet->stream_index 的流类型
 		{
 

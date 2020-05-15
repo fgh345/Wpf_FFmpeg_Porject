@@ -15,8 +15,6 @@ extern "C"
 };
 
 
-//ffap_
-
 //流队列中，视频流所在的位置
 int ffap_video_index = -1;
 //流队列中，音频流所在的位置
@@ -28,7 +26,7 @@ AVCodecContext* ffap_aVAudioCodecContext = NULL;
 AVCodec* ffap_aVideoCodec = NULL;
 AVCodec* ffap_aVaudioCodec = NULL;
 
-
+AVPacket* ffap_packet = NULL;
 AVFormatContext* ffap_aVFormatContext = NULL;
 
 
@@ -37,6 +35,70 @@ char ffap_filepath[] = "C:\\Users\\Youzh\\Videos\\jxyy.mp4"; //读取本地文件地址
 void ffap_start()
 {
 	
+	ffap_initFFmpeg();
+
+	//ffap_load_frame();
+
+	SDL_CreateThread(sfp_refresh_thread, NULL, NULL);
+}
+
+int sfp_refresh_thread(void* opaque) {
+
+	printf("sfp_refresh_thread.....");
+
+	//thread_exit = 0;
+	while (0) {
+		printf("循环.....");
+		SDL_Event event;
+		//event.type = SFM_REFRESH_EVENT;
+		SDL_PushEvent(&event);
+		SDL_Delay(40);
+	}
+	//thread_exit = 0;
+	//Break
+	SDL_Event event;
+	//event.type = SFM_BREAK_EVENT;
+	SDL_PushEvent(&event);
+
+	return 0;
+}
+
+void ffap_load_frame() {
+
+	//从packet中解出来的原始视频帧
+	AVFrame* ffap_aVframe = av_frame_alloc();//返回一个填充默认值的AVFrame
+
+	if (av_read_frame(ffap_aVFormatContext, ffap_packet) >= 0) {
+		//av_read_frame:  根据AVFormatContext 读取packet信息
+		if (ffap_packet->stream_index == ffap_video_index)//对比packet->stream_index 的流类型
+		{
+
+			//解码。输入为packet，输出为original_video_frame
+			if (avcodec_send_packet(ffap_aVideoCodecContext, ffap_packet) == 0)//向解码器(AVCodecContext)发送需要解码的数据包(packet),0 表示解码成功
+			{
+				int ret = avcodec_receive_frame(ffap_aVideoCodecContext, ffap_aVframe);//AVCodecContext* video_codec_ctx;
+				//avcodec_receive_frame: 从解码器获取解码后的一帧,0表是解释成功
+				if (ret == 0)
+				{
+
+				}
+				else {
+					printf("没读取到!");
+				}
+
+			}
+		}else if (ffap_packet->stream_index == ffap_audio_index) {
+
+		}
+	}
+
+	av_packet_unref(ffap_packet);
+	av_free(ffap_aVframe);
+
+}
+
+
+void ffap_initFFmpeg() {
 	avformat_network_init();
 
 	avdevice_register_all();
@@ -79,10 +141,19 @@ void ffap_start()
 		if (ffap_aVideoCodecContext == NULL)
 		{
 			printf("Could not allocate ffap_aVideoCodecContext\n");
-			return;
 		}
 
 		ffap_aVideoCodec = avcodec_find_decoder(ffap_aVideoCodecContext->codec_id);
+
+		if (ffap_aVideoCodec == NULL)
+		{
+			printf("VideoCodec not found.\n");
+		}
+
+		if (avcodec_open2(ffap_aVideoCodecContext, ffap_aVideoCodec, NULL) < 0)
+		{
+			printf("Could not open VideoCodec.\n");
+		}
 	}
 
 	if (ffap_audio_index >= 0) {
@@ -92,18 +163,20 @@ void ffap_start()
 		if (ffap_aVAudioCodecContext == NULL)
 		{
 			printf("Could not allocate ffap_aVAudioCodecContext\n");
-			return;
 		}
 
+		ffap_aVaudioCodec = avcodec_find_decoder(ffap_aVAudioCodecContext->codec_id);
 
+		if (ffap_aVaudioCodec == NULL)
+		{
+			printf("AudioCodec not found.\n");
+		}
+
+		if (avcodec_open2(ffap_aVAudioCodecContext, ffap_aVaudioCodec, NULL) < 0)
+		{
+			printf("Could not open AudioCodec.\n");
+		}
 	}
-
-	
-	
-
-
-
-		
 }
 
 
