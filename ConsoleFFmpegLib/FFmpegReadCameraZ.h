@@ -44,3 +44,6 @@ int frcz_open_rtmp_fun();
 
 //开启SDL窗口
 int frcz_open_window_fun();
+
+//子线程
+int frcz_refresh_thread(void* opaque);

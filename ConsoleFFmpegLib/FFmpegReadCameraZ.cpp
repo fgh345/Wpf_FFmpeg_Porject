@@ -33,6 +33,8 @@ bool frcz_isQuit = false;
 //事件句柄
 SDL_Event frcz_event;
 
+#define SFM_REFRESH_EVENT  (SDL_USEREVENT + 1)
+
 AVFrame* frcz_aVframe = NULL;
 AVFrame* frcz_aVframeYUV = av_frame_alloc();
 AVCodec* frcz_aVCodec = NULL;
@@ -571,34 +573,54 @@ int frcz_open_window_fun() {
 	else
 	{
 
+		//开启子线程
+		SDL_CreateThread(frcz_refresh_thread, NULL, NULL);
+
 		//While application is running
 		while (!frcz_isQuit)
 		{
 			//Handle events on queue
-			while (SDL_PollEvent(&frcz_event) != 0)
+		/*	while (SDL_PollEvent(&frcz_event) != 0)
 			{
-				//User requests quit
-				if (frcz_event.type == SDL_QUIT)
-				{
-					frcz_isQuit = true;
-				}
+				
+			}*/
+
+			SDL_WaitEvent(&frcz_event);
+			//User requests quit
+			if (frcz_event.type == SDL_QUIT)
+			{
+				frcz_isQuit = true;
+			}
+			else if (frcz_event.type == SFM_REFRESH_EVENT)
+			{
+				read_frame_by_dshow();
+
+				//Clear screen
+				SDL_RenderClear(frcz_Renderer);
+
+				//Render texture to screen
+				SDL_RenderCopy(frcz_Renderer, frcz_Texture, NULL, NULL);
+
+				//Update screen
+				SDL_RenderPresent(frcz_Renderer);
+
 			}
 
-			read_frame_by_dshow();
-
-			//Clear screen
-			SDL_RenderClear(frcz_Renderer);
-
-			//Render texture to screen
-			SDL_RenderCopy(frcz_Renderer, frcz_Texture, NULL, NULL);
-
-			//Update screen
-			SDL_RenderPresent(frcz_Renderer);
 
 			//Update the surface
 			//SDL_UpdateWindowSurface(frcz_window);
 		}
 	}
 	frcz_closeWindow();
+	return 0;
+}
+
+//帧刷新通知
+int frcz_refresh_thread(void* opaque) {
+	while (frcz_event.type != SDL_QUIT) {
+		frcz_event.type = SFM_REFRESH_EVENT;
+		SDL_PushEvent(&frcz_event);
+		SDL_Delay(8);
+	}
 	return 0;
 }

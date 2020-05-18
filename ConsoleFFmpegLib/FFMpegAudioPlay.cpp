@@ -40,26 +40,32 @@ void ffap_start()
 	//ffap_load_frame();
 
 	SDL_CreateThread(sfp_refresh_thread, NULL, NULL);
+
+
+	while (true)
+	{
+		printf("主线程.....\n");
+		SDL_Delay(500);
+	}
 }
 
+int thread_exit = 0;
+
 int sfp_refresh_thread(void* opaque) {
-
-	printf("sfp_refresh_thread.....");
-
-	//thread_exit = 0;
-	while (0) {
-		printf("循环.....");
+	thread_exit = 0;
+	while (!thread_exit) {
+		printf("qwerty\n");
 		SDL_Event event;
 		//event.type = SFM_REFRESH_EVENT;
 		SDL_PushEvent(&event);
-		SDL_Delay(40);
+		SDL_Delay(400);
 	}
-	//thread_exit = 0;
+	thread_exit = 0;
 	//Break
 	SDL_Event event;
 	//event.type = SFM_BREAK_EVENT;
 	SDL_PushEvent(&event);
-
+	printf("SDL_PushEvent\n");
 	return 0;
 }
 
@@ -96,7 +102,6 @@ void ffap_load_frame() {
 	av_free(ffap_aVframe);
 
 }
-
 
 void ffap_initFFmpeg() {
 	avformat_network_init();
