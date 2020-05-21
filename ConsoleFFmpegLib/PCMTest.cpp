@@ -132,7 +132,7 @@
 			printf("fp_statÊ§°Ü!");
 		}
 
-		short* sample = (short*)malloc(1);
+		unsigned short sample = (unsigned short)malloc(1);
 
 		int cnt = 0;
 		while (!feof(fp)) {
@@ -140,12 +140,13 @@
 			if (cnt > start_num && cnt <= (start_num + dur_num)) {
 				fwrite(sample, 1, 1, fp1);
 
+				short cc = sample[0];
 
-				printf("samplenum:%d \n", sample);
+				printf("samplenum:%d \n", cc);
 
-				fprintf(fp_stat, "%6d,", sample);
+				fprintf(fp_stat, "%6d,", cc);
 				if (cnt % 10 == 0)
-					fprintf(fp_stat, "\n", sample);
+					fprintf(fp_stat, "\n", cc);
 			}
 			cnt++;
 		}
