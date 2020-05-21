@@ -3,16 +3,22 @@
 #include "SDL_LoadImg.h"
 #include "ConsoleFFmpegLib.h"
 #include "FFMpegAudioPlay.h"
+#include "PCMTest.h"
 
 int main() {
 
-	startReadCameraZ();
+	//startReadCameraZ();
 
 	//initSDL_LoadImg();
 
 	//cffStart();
 
 	//ffap_start();
+
+	PCMTest pc = PCMTest();
+
+	//pc.simplest_pcm16le_to_pcm8((char*)"Test_44.1k_s16le.pcm");
+	pc.simplest_pcm16le_cut_singlechannel2((char*)"drum.pcm", 2360, 120);
 
 	return 0;
 }

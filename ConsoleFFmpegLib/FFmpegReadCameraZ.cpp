@@ -46,6 +46,8 @@ AVPixelFormat frcz_pix_format = AV_PIX_FMT_YUV420P;
 
 //流队列中，视频流所在的位置
 int frcz_video_index = -1;
+//流队列中，音频流所在的位置
+int frcz_audio_index = -1;
 
 SDL_Rect frcz_sdlRect;
 
@@ -90,7 +92,7 @@ int frcz_initFFmpeg() {
 	frcz_aVCodecContext = avcodec_alloc_context3(NULL);
 
 	//Show Dshow Device
-	//show_dshow_device();
+	show_dshow_device();
 	//Show Device Options
 	//show_dshow_device_option();
 	//Show VFW Options
@@ -102,15 +104,15 @@ int frcz_initFFmpeg() {
 	av_dict_set_int(&frcz_options, "rtbufsize", 3041280 * 20, 0);//默认大小3041280  设置后画面会延迟 因为处理速度跟不上
 
 	//Set own video device's name              Surface Camera Front  USB2.0 Camera
-	//if (avformat_open_input(&frcz_aVFormatContext, "video=USB2.0 Camera", frcz_aVInputFormat, &frcz_options) != 0) {
-	//	printf("Couldn't open input stream.\n");
-	//	return -1;
-	//}
-
-	if (avformat_open_input(&frcz_aVFormatContext, frcz_filepath, NULL, NULL) != 0) {
+	if (avformat_open_input(&frcz_aVFormatContext, "video=USB2.0 Camera", frcz_aVInputFormat, &frcz_options) != 0) {
 		printf("Couldn't open input stream.\n");
 		return -1;
 	}
+
+	//if (avformat_open_input(&frcz_aVFormatContext, frcz_filepath, NULL, NULL) != 0) {
+	//	printf("Couldn't open input stream.\n");
+	//	return -1;
+	//}
 
 	if (avformat_find_stream_info(frcz_aVFormatContext, NULL) < 0)
 	{
@@ -119,12 +121,13 @@ int frcz_initFFmpeg() {
 	}
 
 
-	for (int i = 0; i < frcz_aVFormatContext->nb_streams; i++)
+	for (int i = 0; i < frcz_aVFormatContext->nb_streams; i++) {
 		if (frcz_aVFormatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
 		{
 			frcz_video_index = i;
 			break;
 		}
+	}
 
 	if (frcz_video_index == -1)
 	{

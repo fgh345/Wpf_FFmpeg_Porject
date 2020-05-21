@@ -8,12 +8,14 @@ extern "C"
 #include "libavcodec/avcodec.h"
 #include "libavformat/avformat.h"
 #include "libswscale/swscale.h"
+#include "libswresample/swresample.h"
 #include "libavdevice/avdevice.h"
 #include "libavutil/imgutils.h"
 #include "libavutil/time.h"
 #include "SDL.h"
 };
 
+#define MAX_AUDIO_FRAME_SIZE 192000 // 1 second of 48khz 32bit audio  
 
 //流队列中，视频流所在的位置
 int ffap_video_index = -1;
@@ -29,44 +31,43 @@ AVCodec* ffap_aVaudioCodec = NULL;
 AVPacket* ffap_packet = NULL;
 AVFormatContext* ffap_aVFormatContext = NULL;
 
+unsigned char* outBuff = NULL;
+int out_buffer_size = -1;   //输出buff
+Uint32  audio_len;
+Uint8* audio_pos;
+
+struct SwrContext* au_convert_ctx = NULL;
 
 char ffap_filepath[] = "C:\\Users\\Youzh\\Videos\\jxyy.mp4"; //读取本地文件地址
+
+void  fill_audio(void* udata, Uint8* stream, int len);
 
 void ffap_start()
 {
 	
 	ffap_initFFmpeg();
 
-	//ffap_load_frame();
+	if (SDL_Init(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER)) < 0) {
+		printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
+		return;
+	}
+	else {
 
-	SDL_CreateThread(sfp_refresh_thread, NULL, NULL);
+		//SDL_AudioSpec
+		SDL_AudioSpec wanted_spec;
+		wanted_spec.freq = 44100;
+		wanted_spec.format = AUDIO_S16SYS;
+		wanted_spec.channels = 2;
+		wanted_spec.silence = 0;
+		wanted_spec.samples = 1024;
+		wanted_spec.callback = fill_audio;
 
+	}
 
 	while (true)
 	{
-		printf("主线程.....\n");
-		SDL_Delay(500);
+		ffap_load_frame();
 	}
-}
-
-int thread_exit = 0;
-
-int sfp_refresh_thread(void* opaque) {
-	thread_exit = 0;
-	while (!thread_exit) {
-		printf("qwerty\n");
-		SDL_Event event;
-		//event.type = SFM_REFRESH_EVENT;
-		SDL_PushEvent(&event);
-		SDL_Delay(400);
-	}
-	thread_exit = 0;
-	//Break
-	SDL_Event event;
-	//event.type = SFM_BREAK_EVENT;
-	SDL_PushEvent(&event);
-	printf("SDL_PushEvent\n");
-	return 0;
 }
 
 void ffap_load_frame() {
@@ -94,7 +95,29 @@ void ffap_load_frame() {
 
 			}
 		}else if (ffap_packet->stream_index == ffap_audio_index) {
+			//解码。输入为packet，输出为original_video_frame
+			if (avcodec_send_packet(ffap_aVAudioCodecContext, ffap_packet) == 0)//向解码器(AVCodecContext)发送需要解码的数据包(packet),0 表示解码成功
+			{
+				int ret = avcodec_receive_frame(ffap_aVAudioCodecContext, ffap_aVframe);//AVCodecContext* video_codec_ctx;
+				//avcodec_receive_frame: 从解码器获取解码后的一帧,0表是解释成功
+				if (ret == 0)
+				{
+					swr_convert(au_convert_ctx, &outBuff, MAX_AUDIO_FRAME_SIZE, (const uint8_t**)ffap_aVframe->data, ffap_aVframe->nb_samples);
+					//fwrite(outBuff, 1, out_buffer_size, outFile); 
+					while (audio_len > 0)
+						SDL_Delay(1);
 
+					unsigned char*  audioChunk = (unsigned char*)outBuff;
+					audio_pos = audioChunk;
+					
+					audio_len = out_buffer_size;
+					printf("处理了");
+				}
+				else {
+					printf("没读取到!");
+				}
+
+			}
 		}
 	}
 
@@ -182,6 +205,47 @@ void ffap_initFFmpeg() {
 			printf("Could not open AudioCodec.\n");
 		}
 	}
+
+	ffap_packet = av_packet_alloc();
+	av_init_packet(ffap_packet);
+
+	if (!ffap_packet)
+		return;
+
+
+	int64_t in_chn_layout = av_get_default_channel_layout(ffap_aVAudioCodecContext->channels);
+
+
+	outBuff = (unsigned char*)av_malloc(MAX_AUDIO_FRAME_SIZE * 2); //双声道
+	out_buffer_size = av_samples_get_buffer_size(NULL, av_get_channel_layout_nb_channels(AV_CH_LAYOUT_STEREO), ffap_aVAudioCodecContext->frame_size, AV_SAMPLE_FMT_S16, 1);
+
+	//Swr
+	au_convert_ctx = swr_alloc_set_opts(NULL,
+		AV_CH_LAYOUT_STEREO,                                /*out*/
+		AV_SAMPLE_FMT_S16,                              /*out*/
+		44100,                                         /*out*/
+		in_chn_layout,                                  /*in*/
+		ffap_aVAudioCodecContext->sample_fmt,               /*in*/
+		ffap_aVAudioCodecContext->sample_rate,               /*in*/
+		0,
+		NULL);
+
+	swr_init(au_convert_ctx);
+
+	SDL_PauseAudio(0);
 }
 
 
+void  fill_audio(void* udata, Uint8* stream, int len) {
+	//SDL 2.0
+	printf("执行了吗");
+
+	SDL_memset(stream, 0, len);
+	if (audio_len == 0)		/*  Only  play  if  we  have  data  left  */
+		return;
+	len = (len > audio_len ? audio_len : len);	/*  Mix  as  much  data  as  possible  */
+
+	SDL_MixAudio(stream, audio_pos, len, SDL_MIX_MAXVOLUME);
+	audio_pos += len;
+	audio_len -= len;
+}
