@@ -15,8 +15,6 @@ extern "C"
 #include "SDL.h"
 };
 
-#define MAX_AUDIO_FRAME_SIZE 192000 // 1 second of 48khz 32bit audio  
-
 //流队列中，视频流所在的位置
 int ffap_video_index = -1;
 //流队列中，音频流所在的位置
@@ -40,6 +38,8 @@ struct SwrContext* au_convert_ctx = NULL;
 
 char ffap_filepath[] = "C:\\Users\\Youzh\\Videos\\jxyy.mp4"; //读取本地文件地址
 
+FILE* ffap_file_out_pcm;
+
 void  fill_audio(void* udata, Uint8* stream, int len);
 
 void ffap_start()
@@ -62,7 +62,19 @@ void ffap_start()
 		wanted_spec.samples = 1024;
 		wanted_spec.callback = fill_audio;
 
+		if (SDL_OpenAudio(&wanted_spec, NULL) < 0) {
+			printf("can't open audio.\n");
+			return;
+		}
+
+		//Play
+		SDL_PauseAudio(0);
+
 	}
+
+	
+	fopen_s(&ffap_file_out_pcm, "ffap_out.pcm", "wb+");
+
 
 	while (true)
 	{
@@ -94,7 +106,8 @@ void ffap_load_frame() {
 				}
 
 			}
-		}else if (ffap_packet->stream_index == ffap_audio_index) {
+		}
+		else if (ffap_packet->stream_index == ffap_audio_index) {
 			//解码。输入为packet，输出为original_video_frame
 			if (avcodec_send_packet(ffap_aVAudioCodecContext, ffap_packet) == 0)//向解码器(AVCodecContext)发送需要解码的数据包(packet),0 表示解码成功
 			{
@@ -102,16 +115,18 @@ void ffap_load_frame() {
 				//avcodec_receive_frame: 从解码器获取解码后的一帧,0表是解释成功
 				if (ret == 0)
 				{
-					swr_convert(au_convert_ctx, &outBuff, MAX_AUDIO_FRAME_SIZE, (const uint8_t**)ffap_aVframe->data, ffap_aVframe->nb_samples);
-					//fwrite(outBuff, 1, out_buffer_size, outFile); 
-					while (audio_len > 0)
+
+					swr_convert(au_convert_ctx, &outBuff, out_buffer_size, (const uint8_t**)ffap_aVframe->data, ffap_aVframe->nb_samples);
+
+					//fwrite(outBuff, 1, out_buffer_size, ffap_file_out_pcm);
+
+
+					audio_len = out_buffer_size;
+					audio_pos = (Uint8*)outBuff;
+
+					while (audio_len > 0)//Wait until finish
 						SDL_Delay(1);
 
-					unsigned char*  audioChunk = (unsigned char*)outBuff;
-					audio_pos = audioChunk;
-					
-					audio_len = out_buffer_size;
-					printf("处理了");
 				}
 				else {
 					printf("没读取到!");
@@ -216,8 +231,15 @@ void ffap_initFFmpeg() {
 	int64_t in_chn_layout = av_get_default_channel_layout(ffap_aVAudioCodecContext->channels);
 
 
-	outBuff = (unsigned char*)av_malloc(MAX_AUDIO_FRAME_SIZE * 2); //双声道
+	
+
+	
+
 	out_buffer_size = av_samples_get_buffer_size(NULL, av_get_channel_layout_nb_channels(AV_CH_LAYOUT_STEREO), ffap_aVAudioCodecContext->frame_size, AV_SAMPLE_FMT_S16, 1);
+
+	//outBuff = (unsigned char*)av_malloc(MAX_AUDIO_FRAME_SIZE * 2); //双声道
+
+	outBuff = new uint8_t[out_buffer_size];
 
 	//Swr
 	au_convert_ctx = swr_alloc_set_opts(NULL,

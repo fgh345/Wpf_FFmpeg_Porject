@@ -61,7 +61,7 @@
 		}
 
 		FILE* fp_stat;
-		ret = fopen_s(&fp_stat,"output_cut.txt", "wb+");
+		ret = fopen_s(&fp_stat,"output_char.txt", "wb+");
 
 		if (ret != 0)
 		{
@@ -78,8 +78,8 @@
 
 				short samplenum = sample[1];
 
-				printf("sample[0]:%d ", sample[0]);
-				printf("sample[1]:%d ", sample[1]);
+				//printf("sample[0]:%d ", sample[0]);
+				//printf("sample[1]:%d ", sample[1]);
 
 				samplenum = samplenum * 256;//把一个char左位移八位
 
@@ -125,28 +125,26 @@
 		}
 
 		FILE* fp_stat;
-		ret = fopen_s(&fp_stat, "output_cut.txt", "wb+");
+		ret = fopen_s(&fp_stat, "output_short.txt", "wb+");
 
 		if (ret != 0)
 		{
 			printf("fp_stat失败!");
 		}
 
-		unsigned short sample = (unsigned short)malloc(1);
+		short* sample = (short*)malloc(2);
 
 		int cnt = 0;
 		while (!feof(fp)) {
-			fread(sample, 1, 1, fp);
+			fread(sample, 2, 1, fp);
 			if (cnt > start_num && cnt <= (start_num + dur_num)) {
-				fwrite(sample, 1, 1, fp1);
+				fwrite(sample, 2, 1, fp1);
 
-				short cc = sample[0];
+				printf("sample:%d \n", *sample);
 
-				printf("samplenum:%d \n", cc);
-
-				fprintf(fp_stat, "%6d,", cc);
+				fprintf(fp_stat, "%6d,", *sample);
 				if (cnt % 10 == 0)
-					fprintf(fp_stat, "\n", cc);
+					fprintf(fp_stat, "\n");
 			}
 			cnt++;
 		}
