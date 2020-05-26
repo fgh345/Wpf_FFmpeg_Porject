@@ -7,13 +7,13 @@
 
 int main() {
 
-	//startReadCameraZ();
+	startReadCameraZ();
 
 	//initSDL_LoadImg();
 
 	//cffStart();
 
-	ffap_start();
+	//ffap_start();
 
 	PCMTest pc = PCMTest();
 

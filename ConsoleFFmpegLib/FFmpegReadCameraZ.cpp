@@ -74,9 +74,9 @@ void startReadCameraZ() {
 
 	int err = fopen_s(&frcz_YUV_FILE, "CameraFrame.yuv", "wb+");//打开文件流
 
-	frcz_open_window_fun();
+	//frcz_open_window_fun();
 	
-	//frcz_open_rtmp_fun();
+	frcz_open_rtmp_fun();
 
 	frcz_release();
 	printf("end!");
@@ -92,7 +92,7 @@ int frcz_initFFmpeg() {
 	frcz_aVCodecContext = avcodec_alloc_context3(NULL);
 
 	//Show Dshow Device
-	show_dshow_device();
+	//show_dshow_device();
 	//Show Device Options
 	//show_dshow_device_option();
 	//Show VFW Options
@@ -104,15 +104,15 @@ int frcz_initFFmpeg() {
 	av_dict_set_int(&frcz_options, "rtbufsize", 3041280 * 20, 0);//默认大小3041280  设置后画面会延迟 因为处理速度跟不上
 
 	//Set own video device's name              Surface Camera Front  USB2.0 Camera
-	if (avformat_open_input(&frcz_aVFormatContext, "video=USB2.0 Camera", frcz_aVInputFormat, &frcz_options) != 0) {
-		printf("Couldn't open input stream.\n");
-		return -1;
-	}
-
-	//if (avformat_open_input(&frcz_aVFormatContext, frcz_filepath, NULL, NULL) != 0) {
+	//if (avformat_open_input(&frcz_aVFormatContext, "video=USB2.0 Camera", frcz_aVInputFormat, &frcz_options) != 0) {
 	//	printf("Couldn't open input stream.\n");
 	//	return -1;
 	//}
+
+	if (avformat_open_input(&frcz_aVFormatContext, frcz_filepath, NULL, NULL) != 0) {
+		printf("Couldn't open input stream.\n");
+		return -1;
+	}
 
 	if (avformat_find_stream_info(frcz_aVFormatContext, NULL) < 0)
 	{
@@ -149,6 +149,25 @@ int frcz_initFFmpeg() {
 		printf("Codec not found.\n");
 		return -1;
 	}
+	else {
+		switch (frcz_aVCodecContext->codec_id) {
+		case AV_CODEC_ID_H264:
+			printf("AVCodec_id:AV_CODEC_ID_H264\n");
+			break;
+		case AV_CODEC_ID_RAWVIDEO:
+			printf("AVCodec_id:AV_CODEC_ID_RAWVIDEO\n");
+			break;
+		default:
+			printf("AVCodec_id:%d\n", frcz_aVCodecContext->codec_id);
+			break;
+		}
+
+
+
+		
+	}
+
+
 	if (avcodec_open2(frcz_aVCodecContext, frcz_aVCodec, NULL) < 0)
 	{
 		printf("Could not open codec.\n");
@@ -458,7 +477,10 @@ int frcz_open_rtmp_fun() {
 	for (int i = 0; i < frcz_aVFormatContext->nb_streams; i++) {
 		//Create output AVStream according to input AVStream
 		AVStream* in_stream = frcz_aVFormatContext->streams[i];
-		AVStream* out_stream = avformat_new_stream(frcz_aVFormatContext_rtmp, frcz_aVCodec);
+
+		AVCodec* aVCodec_out = avcodec_find_decoder(AV_CODEC_ID_H264);
+
+		AVStream* out_stream = avformat_new_stream(frcz_aVFormatContext_rtmp, aVCodec_out);
 		if (!out_stream) {
 			printf("Failed allocating output stream\n");
 			return -1;
@@ -482,12 +504,17 @@ int frcz_open_rtmp_fun() {
 			return -1;
 		}
 
+		printf("frcz_aVFormatContext_rtmp_nb_streams:%d\n" , frcz_aVFormatContext_rtmp->nb_streams);
+
 	}
 
-	//Dump Format------------------
+	//Dump Format------------------ 打印有关输入或输出格式的详细信息，例如
+	//持续时间，比特率，流，容器，程序，元数据，边数据，编解码器和时基
+	printf("====av_dump_format====\n");
 	av_dump_format(frcz_aVFormatContext_rtmp, 0, frcz_trmp_url, 1);
 
 	//Open output URL
+	printf("====Open output URL====\n");
 	if (!(frcz_aVFormatContext_rtmp->oformat->flags & AVFMT_NOFILE)) {
 		int ret = avio_open(&frcz_aVFormatContext_rtmp->pb, frcz_trmp_url, AVIO_FLAG_WRITE);
 		if (ret < 0) {
@@ -496,7 +523,7 @@ int frcz_open_rtmp_fun() {
 		}
 	}
 
-	//Write file header
+	//Write file header 分配流私有数据并将流头写入输出媒体文件。
 	int ret = avformat_write_header(frcz_aVFormatContext_rtmp, NULL);
 	if (ret < 0) {
 		printf("Error occurred when opening output URL\n");
@@ -516,6 +543,7 @@ int frcz_open_rtmp_fun() {
 		if (frcz_packet->pts == AV_NOPTS_VALUE) {
 			//Write PTS
 			AVRational time_base1 = frcz_aVFormatContext->streams[frcz_video_index]->time_base;
+
 			//Duration between 2 frames (us)
 			int64_t calc_duration = (double)AV_TIME_BASE / av_q2d(frcz_aVFormatContext->streams[frcz_video_index]->r_frame_rate);
 			//Parameters
@@ -523,6 +551,11 @@ int frcz_open_rtmp_fun() {
 			frcz_packet->dts = frcz_packet->pts;
 			frcz_packet->duration = (double)calc_duration / (double)(av_q2d(time_base1) * AV_TIME_BASE);
 		}
+
+		printf("pts:%d ----", frcz_packet->pts);
+		printf("dts:%d ----", frcz_packet->dts);
+		printf("duration:%d \n", frcz_packet->duration);
+
 		//Important:Delay
 		if (frcz_packet->stream_index == frcz_video_index) {
 			AVRational time_base = frcz_aVFormatContext->streams[frcz_video_index]->time_base;
@@ -531,7 +564,6 @@ int frcz_open_rtmp_fun() {
 			int64_t now_time = av_gettime() - start_time;
 			if (pts_time > now_time)
 				av_usleep(pts_time - now_time);
-
 		}
 
 		in_stream = frcz_aVFormatContext->streams[frcz_packet->stream_index];
@@ -545,7 +577,7 @@ int frcz_open_rtmp_fun() {
 		frcz_packet->pos = -1;
 		//Print to Screen
 		if (frcz_packet->stream_index == frcz_video_index) {
-			printf("Send %8d video frames to output URL\n", frcz_frame_index);
+			//printf("Send %8d video frames to output URL\n", frcz_frame_index);
 			frcz_frame_index++;
 		}
 		//ret = av_write_frame(ofmt_ctx, &pkt);
@@ -559,7 +591,7 @@ int frcz_open_rtmp_fun() {
 		av_packet_unref(frcz_packet);
 	}
 
-	//Write file trailer
+	//Write file trailer 将流尾写入输出媒体文件并释放 文件私有数据。 只能在成功调用avformat_write_头之后调用。
 	av_write_trailer(frcz_aVFormatContext_rtmp);
 
 	return 0;
