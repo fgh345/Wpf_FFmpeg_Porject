@@ -126,7 +126,6 @@ void ffap_load_frame() {
 
 					while (audio_len > 0)//Wait until finish
 						SDL_Delay(1);
-
 				}
 				else {
 					printf("√ª∂¡»°µΩ!");
@@ -256,7 +255,6 @@ void ffap_initFFmpeg() {
 
 	SDL_PauseAudio(0);
 }
-
 
 void  fill_audio(void* udata, Uint8* stream, int len) {
 	//SDL 2.0

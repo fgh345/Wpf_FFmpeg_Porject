@@ -32,18 +32,19 @@ void toSaveYUV420PFile();
 //保存为YUV422P格式文件
 void toSaveYUV422PFile();
 
-
 //读取一帧
-int read_frame_by_dshow();
+int read_frame_by_camera();
+int read_frame_by_micphone();
 
 //释放资源
 void frcz_release();
 
-//开启推流
-int frcz_open_rtmp_fun();
-
 //开启SDL窗口
 int frcz_open_window_fun();
 
-//子线程
-int frcz_refresh_thread(void* opaque);
+//窗口刷新线程
+int frcz_vidio_thread(void* opaque);
+
+//音频解析线程
+int frcz_audio_thread(void* opaque);
+

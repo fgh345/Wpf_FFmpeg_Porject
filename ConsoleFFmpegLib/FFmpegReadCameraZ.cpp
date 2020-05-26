@@ -8,6 +8,7 @@ extern "C"
 	#include "libavcodec/avcodec.h"
 	#include "libavformat/avformat.h"
 	#include "libswscale/swscale.h"
+	#include "libswresample/swresample.h"
 	#include "libavdevice/avdevice.h"
 	#include "libavutil/imgutils.h"
 	#include "libavutil/time.h"
@@ -35,18 +36,23 @@ SDL_Event frcz_event;
 
 #define SFM_REFRESH_EVENT  (SDL_USEREVENT + 1)
 
+AVPacket* frcz_packet = NULL;
+
+AVFormatContext* frcz_aVFormatContext_camera = NULL;
+AVFormatContext* frcz_aVFormatContext_audio = NULL;
+
 AVFrame* frcz_aVframe = NULL;
 AVFrame* frcz_aVframeYUV = av_frame_alloc();
-AVCodec* frcz_aVCodec = NULL;
-AVCodecContext* frcz_aVCodecContext = NULL;
-AVFormatContext* frcz_aVFormatContext = NULL;
-AVPacket* frcz_packet = NULL;
-struct SwsContext* frcz_swsContext = NULL;
+
+AVCodecContext* frcz_aVCodecContext_video = NULL;
+AVCodecContext* frcz_aVCodecContext_audio = NULL;
+
+struct SwsContext* frcz_swsContext = NULL;//像素转换
+struct SwrContext* frcz_swrContext = NULL;//音频转换
+
 AVPixelFormat frcz_pix_format = AV_PIX_FMT_YUV420P;
 
-//流队列中，视频流所在的位置
 int frcz_video_index = -1;
-//流队列中，音频流所在的位置
 int frcz_audio_index = -1;
 
 SDL_Rect frcz_sdlRect;
@@ -54,12 +60,17 @@ SDL_Rect frcz_sdlRect;
 int frcz_video_out_buffer_size = 0; //视频输出buffer 大小
 uint8_t* frcz_video_out_buffer;//视频输出buffer
 
-char frcz_filepath[] = "C:\\Users\\Youzh\\Videos\\jxyy.mp4"; //读取本地文件地址
+int frcz_audio_out_buffer_size = -1;   //音频输出buffer 大小
+uint8_t* frcz_audio_out_buffer;//音频输出buffer
+
 FILE* frcz_YUV_FILE;//存储为YUV格式文件
 
-char frcz_trmp_url[] = "rtmp://192.168.30.20/live/livestream"; //推流地址
-AVFormatContext* frcz_aVFormatContext_rtmp = NULL;
-int frcz_frame_index = 0;//推送的帧计数
+Uint32  frcz_audio_len;//需要播放的数据长度
+Uint8* frcz_audio_pos;//音频已经播放到的位置
+
+
+//音频播放回调
+void  frcz_fill_audio_back(void* udata, Uint8* stream, int len);
 
 
 void startReadCameraZ() {
@@ -74,9 +85,7 @@ void startReadCameraZ() {
 
 	int err = fopen_s(&frcz_YUV_FILE, "CameraFrame.yuv", "wb+");//打开文件流
 
-	//frcz_open_window_fun();
-	
-	frcz_open_rtmp_fun();
+	frcz_open_window_fun();
 
 	frcz_release();
 	printf("end!");
@@ -88,8 +97,11 @@ int frcz_initFFmpeg() {
 
 	avdevice_register_all();
 
-	frcz_aVFormatContext = avformat_alloc_context();
-	frcz_aVCodecContext = avcodec_alloc_context3(NULL);
+	frcz_aVFormatContext_camera = avformat_alloc_context();
+	frcz_aVFormatContext_audio = avformat_alloc_context();
+
+	frcz_aVCodecContext_video = avcodec_alloc_context3(NULL);
+	frcz_aVCodecContext_audio = avcodec_alloc_context3(NULL);
 
 	//Show Dshow Device
 	//show_dshow_device();
@@ -100,90 +112,100 @@ int frcz_initFFmpeg() {
 
 	AVInputFormat* frcz_aVInputFormat = av_find_input_format("dshow");
 
-	AVDictionary* frcz_options = NULL;
-	av_dict_set_int(&frcz_options, "rtbufsize", 3041280 * 20, 0);//默认大小3041280  设置后画面会延迟 因为处理速度跟不上
+	AVDictionary* frcz_options_v = NULL;
+	AVDictionary* frcz_options_a = NULL;
+	av_dict_set_int(&frcz_options_v, "rtbufsize", 3041280 * 20, 0);//默认大小3041280  设置后画面会延迟 因为处理速度跟不上
+	av_dict_set_int(&frcz_options_a, "rtbufsize", 3041280 * 20, 0);//默认大小3041280  设置后画面会延迟 因为处理速度跟不上
 
 	//Set own video device's name              Surface Camera Front  USB2.0 Camera
-	//if (avformat_open_input(&frcz_aVFormatContext, "video=USB2.0 Camera", frcz_aVInputFormat, &frcz_options) != 0) {
-	//	printf("Couldn't open input stream.\n");
-	//	return -1;
-	//}
-
-	if (avformat_open_input(&frcz_aVFormatContext, frcz_filepath, NULL, NULL) != 0) {
+	if (avformat_open_input(&frcz_aVFormatContext_camera, "video=USB2.0 Camera", frcz_aVInputFormat, &frcz_options_v) != 0) {
 		printf("Couldn't open input stream.\n");
 		return -1;
 	}
 
-	if (avformat_find_stream_info(frcz_aVFormatContext, NULL) < 0)
+	if (avformat_open_input(&frcz_aVFormatContext_audio, "audio=HKZ (Realtek(R) Audio)", frcz_aVInputFormat, &frcz_options_a) != 0) {
+		printf("Couldn't open input stream.\n");
+		return -1;
+	}
+
+	if (frcz_aVFormatContext_camera ==NULL || avformat_find_stream_info(frcz_aVFormatContext_camera, NULL) < 0)
 	{
-		printf("Couldn't find stream information.\n");
+		printf("Couldn't find stream information v.\n");
+		return -1;
+	}
+
+	if (frcz_aVFormatContext_audio == NULL || avformat_find_stream_info(frcz_aVFormatContext_audio, NULL) < 0)
+	{
+		printf("Couldn't find stream information a.\n");
 		return -1;
 	}
 
 
-	for (int i = 0; i < frcz_aVFormatContext->nb_streams; i++) {
-		if (frcz_aVFormatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
+	for (int i = 0; i < frcz_aVFormatContext_camera->nb_streams; i++) {
+		if (frcz_aVFormatContext_camera->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
 		{
 			frcz_video_index = i;
 			break;
 		}
 	}
 
-	if (frcz_video_index == -1)
-	{
-		printf("Couldn't find a video stream.\n");
-		return -1;
-	}
-
-	avcodec_parameters_to_context(frcz_aVCodecContext, frcz_aVFormatContext->streams[frcz_video_index]->codecpar);
-
-	if (frcz_aVCodecContext == NULL)
-	{
-		printf("Could not allocate AVCodecContext\n");
-		return -1;
-	}
-
-	frcz_aVCodec = avcodec_find_decoder(frcz_aVCodecContext->codec_id);
-	if (frcz_aVCodec == NULL)
-	{
-		printf("Codec not found.\n");
-		return -1;
-	}
-	else {
-		switch (frcz_aVCodecContext->codec_id) {
-		case AV_CODEC_ID_H264:
-			printf("AVCodec_id:AV_CODEC_ID_H264\n");
-			break;
-		case AV_CODEC_ID_RAWVIDEO:
-			printf("AVCodec_id:AV_CODEC_ID_RAWVIDEO\n");
-			break;
-		default:
-			printf("AVCodec_id:%d\n", frcz_aVCodecContext->codec_id);
+	for (int i = 0; i < frcz_aVFormatContext_audio->nb_streams; i++) {
+		if (frcz_aVFormatContext_audio->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO)
+		{
+			frcz_audio_index = i;
 			break;
 		}
-
-
-
-		
 	}
 
 
-	if (avcodec_open2(frcz_aVCodecContext, frcz_aVCodec, NULL) < 0)
+	if (frcz_video_index == -1 || frcz_audio_index == -1)
 	{
-		printf("Could not open codec.\n");
+		printf("Couldn't find a video or audio stream.\n");
 		return -1;
 	}
 
-	frcz_screen_w = frcz_aVCodecContext->width;
-	frcz_screen_h = frcz_aVCodecContext->height;
+	avcodec_parameters_to_context(frcz_aVCodecContext_video, frcz_aVFormatContext_camera->streams[frcz_video_index]->codecpar);
+	avcodec_parameters_to_context(frcz_aVCodecContext_audio, frcz_aVFormatContext_audio->streams[frcz_audio_index]->codecpar);
 
-#pragma region 格式转换
+	if (frcz_aVCodecContext_video == NULL)
+	{
+		printf("Could not allocate CodecContext_video\n");
+		return -1;
+	}
+
+	if (frcz_aVCodecContext_audio == NULL)
+	{
+		printf("Could not allocate CodecContext_audio\n");
+		return -1;
+	}
+
+	AVCodec* frcz_aVCodec_video = avcodec_find_decoder(frcz_aVCodecContext_video->codec_id);
+	AVCodec* frcz_aVCodec_audio = avcodec_find_decoder(frcz_aVCodecContext_audio->codec_id);
+
+
+	if (frcz_aVCodec_video == NULL || avcodec_open2(frcz_aVCodecContext_video, frcz_aVCodec_video, NULL) < 0)
+	{
+		printf("Could not open video codec.\n");
+		return -1;
+	}
+
+	if (frcz_aVCodec_audio == NULL || avcodec_open2(frcz_aVCodecContext_audio, frcz_aVCodec_audio, NULL) < 0)
+	{
+		printf("Could not open audio codec.\n");
+		return -1;
+	}
+
+
+	frcz_screen_w = frcz_aVCodecContext_video->width;
+	frcz_screen_h = frcz_aVCodecContext_video->height;
+
+#pragma region 像素格式转换
 
 	//计算输出缓存
 	frcz_video_out_buffer_size = av_image_get_buffer_size(
 		frcz_pix_format,
-		frcz_aVCodecContext->width,
-		frcz_aVCodecContext->height,
+		frcz_aVCodecContext_video->width,
+		frcz_aVCodecContext_video->height,
 		1);
 
 	//输出缓存
@@ -195,20 +217,44 @@ int frcz_initFFmpeg() {
 		frcz_aVframeYUV->linesize,
 		frcz_video_out_buffer,
 		frcz_pix_format,
-		frcz_aVCodecContext->width,
-		frcz_aVCodecContext->height,
+		frcz_aVCodecContext_video->width,
+		frcz_aVCodecContext_video->height,
 		1);
 
 	frcz_swsContext = sws_getContext(
-		frcz_aVCodecContext->width,
-		frcz_aVCodecContext->height,
-		frcz_aVCodecContext->pix_fmt,
-		frcz_aVCodecContext->width,
-		frcz_aVCodecContext->height,
+		frcz_aVCodecContext_video->width,
+		frcz_aVCodecContext_video->height,
+		frcz_aVCodecContext_video->pix_fmt,
+		frcz_aVCodecContext_video->width,
+		frcz_aVCodecContext_video->height,
 		frcz_pix_format,
 		SWS_BICUBIC,
 		NULL, NULL, NULL);
 
+#pragma endregion
+
+#pragma region 音频格式转换
+
+	int64_t in_chn_layout = av_get_default_channel_layout(frcz_aVCodecContext_audio->channels);
+
+	frcz_audio_out_buffer_size = av_samples_get_buffer_size(NULL, av_get_channel_layout_nb_channels(AV_CH_LAYOUT_STEREO), 1024, AV_SAMPLE_FMT_S16, 1);
+
+	//outBuff = (unsigned char*)av_malloc(MAX_AUDIO_FRAME_SIZE * 2); //双声道
+
+	frcz_audio_out_buffer = new uint8_t[frcz_audio_out_buffer_size];
+
+	//Swr
+	frcz_swrContext = swr_alloc_set_opts(NULL,
+		AV_CH_LAYOUT_STEREO,                                /*out*/
+		AV_SAMPLE_FMT_S16,                              /*out*/
+		44100,                                         /*out*/
+		in_chn_layout,                                  /*in*/
+		frcz_aVCodecContext_audio->sample_fmt,               /*in*/
+		frcz_aVCodecContext_audio->sample_rate,               /*in*/
+		0,
+		NULL);
+
+	swr_init(frcz_swrContext);
 #pragma endregion
 
 	frcz_packet = av_packet_alloc();
@@ -260,7 +306,7 @@ bool frcz_initSDLWindow()
 	bool success = true;
 
 	//Initialize SDL
-	if (SDL_Init(SDL_INIT_VIDEO) < 0)
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0)
 	{
 		printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
 		success = false;
@@ -295,6 +341,23 @@ bool frcz_initSDLWindow()
 			}
 
 		}
+
+		//SDL_AudioSpec
+		SDL_AudioSpec wanted_spec;
+		wanted_spec.freq = 44100;
+		wanted_spec.format = AUDIO_S16SYS;
+		wanted_spec.channels = 2;
+		wanted_spec.silence = 0;
+		wanted_spec.samples = 1024;
+		wanted_spec.callback = frcz_fill_audio_back;
+
+		if (SDL_OpenAudio(&wanted_spec, NULL) < 0) {
+			printf("can't open audio.\n");
+			return success;
+		}
+
+		//Play
+		SDL_PauseAudio(0);
 	}
 
 	return success;
@@ -355,30 +418,33 @@ void frcz_release() {
 	sws_freeContext(frcz_swsContext);
 	frcz_swsContext = NULL;
 
+	//av_free(frcz_aVframe);
 	av_free(frcz_aVframeYUV);
 
-	avcodec_close(frcz_aVCodecContext);
+	avcodec_close(frcz_aVCodecContext_video);
+	avcodec_close(frcz_aVCodecContext_audio);
 
-	avformat_close_input(&frcz_aVFormatContext);
+	avformat_close_input(&frcz_aVFormatContext_camera);
+	avformat_close_input(&frcz_aVFormatContext_audio);
 }
 
-//读取一帧
-int read_frame_by_dshow() {
+//读取一帧 从相机
+int read_frame_by_camera() {
 
 	int ret = -1;
 
 	//从packet中解出来的原始视频帧
 	frcz_aVframe = av_frame_alloc();//返回一个填充默认值的AVFrame
 
-	if (av_read_frame(frcz_aVFormatContext, frcz_packet) >= 0) {
+	if (av_read_frame(frcz_aVFormatContext_camera, frcz_packet) >= 0) {
 		//av_read_frame:  根据AVFormatContext 读取packet信息
 		if (frcz_packet->stream_index == frcz_video_index)//对比packet->stream_index 的流类型
 		{
 
 			//解码。输入为packet，输出为original_video_frame
-			if (avcodec_send_packet(frcz_aVCodecContext, frcz_packet) == 0)//向解码器(AVCodecContext)发送需要解码的数据包(packet),0 表示解码成功
+			if (avcodec_send_packet(frcz_aVCodecContext_video, frcz_packet) == 0)//向解码器(AVCodecContext)发送需要解码的数据包(packet),0 表示解码成功
 			{
-				ret = avcodec_receive_frame(frcz_aVCodecContext, frcz_aVframe);//AVCodecContext* video_codec_ctx;
+				ret = avcodec_receive_frame(frcz_aVCodecContext_video, frcz_aVframe);//AVCodecContext* video_codec_ctx;
 				//avcodec_receive_frame: 从解码器获取解码后的一帧,0表是解释成功
 				if (ret ==0)
 				{
@@ -387,7 +453,7 @@ int read_frame_by_dshow() {
 						(const uint8_t* const*)frcz_aVframe->data,
 						frcz_aVframe->linesize,
 						0,
-						frcz_aVCodecContext->height,
+						frcz_aVCodecContext_video->height,
 						frcz_aVframeYUV->data,
 						frcz_aVframeYUV->linesize);
 
@@ -398,6 +464,40 @@ int read_frame_by_dshow() {
 					printf("没读取到!");
 				}
 				
+			}
+		}
+	}
+
+	av_packet_unref(frcz_packet);
+	av_free(frcz_aVframe);
+	return ret;
+}
+
+//读取一帧 从麦克风
+int read_frame_by_micphone() {
+
+	int ret = -1;
+
+	//从packet中解出来的原始视频帧
+	frcz_aVframe = av_frame_alloc();//返回一个填充默认值的AVFrame
+
+	if (av_read_frame(frcz_aVFormatContext_audio, frcz_packet) >= 0) {
+		//av_read_frame:  根据AVFormatContext 读取packet信息
+		if (frcz_packet->stream_index == frcz_audio_index)//对比packet->stream_index 的流类型
+		{
+			//解码。输入为packet，输出为original_video_frame
+			if (avcodec_send_packet(frcz_aVCodecContext_audio, frcz_packet) == 0)//向解码器(AVCodecContext)发送需要解码的数据包(packet),0 表示解码成功
+			{
+				ret = avcodec_receive_frame(frcz_aVCodecContext_audio, frcz_aVframe);//AVCodecContext* video_codec_ctx;
+				//avcodec_receive_frame: 从解码器获取解码后的一帧,0表是解释成功
+				if (ret == 0)
+				{
+					swr_convert(frcz_swrContext, &frcz_audio_out_buffer, frcz_audio_out_buffer_size, (const uint8_t**)frcz_aVframe->data, frcz_aVframe->nb_samples);
+				}
+				else {
+					printf("没读取到!");
+				}
+
 			}
 		}
 	}
@@ -464,139 +564,6 @@ void toSaveYUV422PFile() {
 	printf("输出结束\n");
 }
 
-//开启推流
-int frcz_open_rtmp_fun() {
-
-	avformat_alloc_output_context2(&frcz_aVFormatContext_rtmp, NULL, "flv", frcz_trmp_url); //RTMP
-
-	if (!frcz_aVFormatContext_rtmp) {
-		printf("Could not create output context\n");
-		return -1;
-	}
-
-	for (int i = 0; i < frcz_aVFormatContext->nb_streams; i++) {
-		//Create output AVStream according to input AVStream
-		AVStream* in_stream = frcz_aVFormatContext->streams[i];
-
-		AVCodec* aVCodec_out = avcodec_find_decoder(AV_CODEC_ID_H264);
-
-		AVStream* out_stream = avformat_new_stream(frcz_aVFormatContext_rtmp, aVCodec_out);
-		if (!out_stream) {
-			printf("Failed allocating output stream\n");
-			return -1;
-		}
-		//Copy the settings of AVCodecContext
-		AVCodecContext* dest = avcodec_alloc_context3(NULL);
-		//从in_stream读取数据到dest里面
-		int ret = avcodec_parameters_to_context(dest, in_stream->codecpar);
-		if (ret < 0) {
-			printf("Failed to copy context from input to output stream codec context\n");
-			return -1;
-		}
-		dest->codec_tag = 0;
-		if (frcz_aVFormatContext_rtmp->oformat->flags & AVFMT_GLOBALHEADER)
-			dest->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
-
-		//将dest应用到out_stream里面
-		ret = avcodec_parameters_from_context(out_stream->codecpar, dest);
-		if (ret < 0) {
-			printf("Failed to copy codec context to out_stream codecpar context\n");
-			return -1;
-		}
-
-		printf("frcz_aVFormatContext_rtmp_nb_streams:%d\n" , frcz_aVFormatContext_rtmp->nb_streams);
-
-	}
-
-	//Dump Format------------------ 打印有关输入或输出格式的详细信息，例如
-	//持续时间，比特率，流，容器，程序，元数据，边数据，编解码器和时基
-	printf("====av_dump_format====\n");
-	av_dump_format(frcz_aVFormatContext_rtmp, 0, frcz_trmp_url, 1);
-
-	//Open output URL
-	printf("====Open output URL====\n");
-	if (!(frcz_aVFormatContext_rtmp->oformat->flags & AVFMT_NOFILE)) {
-		int ret = avio_open(&frcz_aVFormatContext_rtmp->pb, frcz_trmp_url, AVIO_FLAG_WRITE);
-		if (ret < 0) {
-			printf("Could not open output URL '%s'", frcz_trmp_url);
-			return -1;
-		}
-	}
-
-	//Write file header 分配流私有数据并将流头写入输出媒体文件。
-	int ret = avformat_write_header(frcz_aVFormatContext_rtmp, NULL);
-	if (ret < 0) {
-		printf("Error occurred when opening output URL\n");
-		return -1;
-	}
-
-	int64_t start_time = av_gettime();
-
-	while (1) {
-		AVStream* in_stream, * out_stream;
-		//Get an AVPacket
-		ret = av_read_frame(frcz_aVFormatContext, frcz_packet);
-		if (ret < 0)
-			break;
-		//FIX：No PTS (Example: Raw H.264)
-		//Simple Write PTS
-		if (frcz_packet->pts == AV_NOPTS_VALUE) {
-			//Write PTS
-			AVRational time_base1 = frcz_aVFormatContext->streams[frcz_video_index]->time_base;
-
-			//Duration between 2 frames (us)
-			int64_t calc_duration = (double)AV_TIME_BASE / av_q2d(frcz_aVFormatContext->streams[frcz_video_index]->r_frame_rate);
-			//Parameters
-			frcz_packet->pts = (double)(frcz_frame_index * calc_duration) / (double)(av_q2d(time_base1) * AV_TIME_BASE);
-			frcz_packet->dts = frcz_packet->pts;
-			frcz_packet->duration = (double)calc_duration / (double)(av_q2d(time_base1) * AV_TIME_BASE);
-		}
-
-		printf("pts:%d ----", frcz_packet->pts);
-		printf("dts:%d ----", frcz_packet->dts);
-		printf("duration:%d \n", frcz_packet->duration);
-
-		//Important:Delay
-		if (frcz_packet->stream_index == frcz_video_index) {
-			AVRational time_base = frcz_aVFormatContext->streams[frcz_video_index]->time_base;
-			AVRational time_base_q = { 1,AV_TIME_BASE };
-			int64_t pts_time = av_rescale_q(frcz_packet->dts, time_base, time_base_q);
-			int64_t now_time = av_gettime() - start_time;
-			if (pts_time > now_time)
-				av_usleep(pts_time - now_time);
-		}
-
-		in_stream = frcz_aVFormatContext->streams[frcz_packet->stream_index];
-		out_stream = frcz_aVFormatContext_rtmp->streams[frcz_packet->stream_index];
-
-		/* copy packet */
-		//Convert PTS/DTS
-		frcz_packet->pts = av_rescale_q_rnd(frcz_packet->pts, in_stream->time_base, out_stream->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
-		frcz_packet->dts = av_rescale_q_rnd(frcz_packet->dts, in_stream->time_base, out_stream->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
-		frcz_packet->duration = av_rescale_q(frcz_packet->duration, in_stream->time_base, out_stream->time_base);
-		frcz_packet->pos = -1;
-		//Print to Screen
-		if (frcz_packet->stream_index == frcz_video_index) {
-			//printf("Send %8d video frames to output URL\n", frcz_frame_index);
-			frcz_frame_index++;
-		}
-		//ret = av_write_frame(ofmt_ctx, &pkt);
-		ret = av_interleaved_write_frame(frcz_aVFormatContext_rtmp, frcz_packet);
-
-		if (ret < 0) {
-			printf("Error muxing packet\n");
-			break;
-		}
-
-		av_packet_unref(frcz_packet);
-	}
-
-	//Write file trailer 将流尾写入输出媒体文件并释放 文件私有数据。 只能在成功调用avformat_write_头之后调用。
-	av_write_trailer(frcz_aVFormatContext_rtmp);
-
-	return 0;
-}
-
 //开启SDL窗口
 int frcz_open_window_fun() {
 
@@ -609,18 +576,15 @@ int frcz_open_window_fun() {
 	{
 
 		//开启子线程
-		SDL_CreateThread(frcz_refresh_thread, NULL, NULL);
+		SDL_CreateThread(frcz_vidio_thread, NULL, NULL);
+		SDL_CreateThread(frcz_audio_thread, NULL, NULL);
 
 		//While application is running
 		while (!frcz_isQuit)
 		{
 			//Handle events on queue
-		/*	while (SDL_PollEvent(&frcz_event) != 0)
-			{
-				
-			}*/
 
-			SDL_WaitEvent(&frcz_event);
+			//SDL_WaitEvent(&frcz_event);
 			//User requests quit
 			if (frcz_event.type == SDL_QUIT)
 			{
@@ -628,7 +592,6 @@ int frcz_open_window_fun() {
 			}
 			else if (frcz_event.type == SFM_REFRESH_EVENT)
 			{
-				read_frame_by_dshow();
 
 				//Clear screen
 				SDL_RenderClear(frcz_Renderer);
@@ -640,6 +603,9 @@ int frcz_open_window_fun() {
 				SDL_RenderPresent(frcz_Renderer);
 
 			}
+			else {
+				SDL_Delay(20);
+			}
 
 
 			//Update the surface
@@ -650,12 +616,43 @@ int frcz_open_window_fun() {
 	return 0;
 }
 
-//帧刷新通知
-int frcz_refresh_thread(void* opaque) {
+//视频解析
+int frcz_vidio_thread(void* opaque) {
 	while (frcz_event.type != SDL_QUIT) {
+		read_frame_by_camera();
 		frcz_event.type = SFM_REFRESH_EVENT;
 		SDL_PushEvent(&frcz_event);
-		SDL_Delay(8);
+		SDL_Delay(40);
 	}
 	return 0;
+}
+
+//音频解析
+int frcz_audio_thread(void* opaque) {
+
+	while (frcz_event.type != SDL_QUIT) {
+		read_frame_by_micphone();
+
+		frcz_audio_len = frcz_audio_out_buffer_size;
+		frcz_audio_pos = (Uint8*)frcz_audio_out_buffer;
+
+		while (frcz_audio_len > 0)//Wait until finish
+			SDL_Delay(1);
+	}
+
+	return 0;
+}
+
+void  frcz_fill_audio_back(void* udata, Uint8* stream, int len) {
+	//SDL 2.0
+	printf("执行了吗");
+
+	SDL_memset(stream, 0, len);
+	if (frcz_audio_len == 0)		/*  Only  play  if  we  have  data  left  */
+		return;
+	len = (len > frcz_audio_len ? frcz_audio_len : len);	/*  Mix  as  much  data  as  possible  */
+
+	SDL_MixAudio(stream, frcz_audio_pos, len, SDL_MIX_MAXVOLUME);
+	frcz_audio_pos += len;
+	frcz_audio_len -= len;
 }

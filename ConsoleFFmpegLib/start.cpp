@@ -1,5 +1,6 @@
 #include <iostream>
 #include "FFmpegReadCameraZ.h"
+#include "FFmpegPushRtmp.h"
 #include "SDL_LoadImg.h"
 #include "ConsoleFFmpegLib.h"
 #include "FFMpegAudioPlay.h"
@@ -15,7 +16,10 @@ int main() {
 
 	//ffap_start();
 
-	PCMTest pc = PCMTest();
+	//ÍÆËÍrtmp
+	//ffpr_start();
+
+	//PCMTest pc = PCMTest();
 
 	//pc.simplest_pcm16le_to_pcm8((char*)"Test_44.1k_s16le.pcm");
 	//pc.simplest_pcm16le_cut_singlechannel((char*)"drum.pcm", 2360, 120);
