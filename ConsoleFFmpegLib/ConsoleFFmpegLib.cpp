@@ -12,8 +12,6 @@ extern "C" {
 #include "libavdevice/avdevice.h"
 }
 
-//#include "libswresample/swresample.h"
-
 AVFormatContext* aVFormatContext;
 
 //AVDictionary* options = NULL;
@@ -67,28 +65,17 @@ int cffStart()
 		while (1)//读取一帧，直到读取到数据
 		{
 			int ret = read_frame();
-			if (ret==0)
-			{
-				std::cout << get_video_frame();
-				//break;
-			}
-			else
-			{
-				printf("未读取到!");
-			}
+			//if (ret==0)
+			//{
+			//	std::cout << get_video_frame();
+			//	//break;
+			//}
+			//else
+			//{
+			//	printf("未读取到!");
+			//}
 			
 		}
-
-		//while (1)//读取一帧，直到读取到数据
-		//{
-		//	int ret = read_frame();
-		//	if (ret == 2)
-		//	{
-		//		std::cout << get_video_frame();
-		//		break;
-		//	}
-
-		//}
 
 
 		//printf("高度:%d  宽度:%d  缓存大小:%d", get_video_height(), get_video_width(), get_video_buffer_size());
@@ -260,65 +247,36 @@ int read_frame() {
 
 				if (ret == 0)//0表是解释成功
 				{
-
-#pragma region 下面是将 frame存成yuv格式文件
-
-					//int i = 0;
-					//unsigned char* tempptr = NULL;
-					//tempptr = original_video_frame->data[0];
-					////printf("height:%d\n", original_video_frame->height);
-					////printf("width:%d\n", original_video_frame->width);
-					////printf("linesize0:%d\n", original_video_frame->linesize[0]);
-					////printf("linesize1:%d\n", original_video_frame->linesize[1]);
-					////printf("linesize2:%d\n", original_video_frame->linesize[2]);
-					//for (i = 0; i < original_video_frame->height; i++) {
-					//	fwrite(tempptr, 1, original_video_frame->width, out_FILE);     //Y 
-					//	//printf("tempptr:%s\n", tempptr);
-					//	tempptr += original_video_frame->linesize[0];
-					//}
-					//tempptr = original_video_frame->data[1];
-					//for (i = 0; i < original_video_frame->height / 2; i++) {
-					//	fwrite(tempptr, 1, original_video_frame->width / 2, out_FILE);   //U
-					//	tempptr += original_video_frame->linesize[1];
-					//}
-					//tempptr = original_video_frame->data[2];
-					//for (i = 0; i < original_video_frame->height / 2; i++) {
-					//	fwrite(tempptr, 1, original_video_frame->width / 2, out_FILE);   //V
-					//	tempptr += original_video_frame->linesize[2];
-					//}
-
-#pragma endregion
-
 					/*图片格式转换（上面图片转换准备的参数，在这里使用）*/
-					sws_scale(video_SwsContext,//图片转码上下文
-						(const uint8_t* const*)original_video_frame->data,//原始数据
-						original_video_frame->linesize,//原始参数
-						0,//转码开始游标，一般为0
-						video_AVCodecContext->height,//行数
-						video_out_AVFrame->data,//转码后的数据
-						video_out_AVFrame->linesize);
-
+					//sws_scale(video_SwsContext,//图片转码上下文
+					//	(const uint8_t* const*)original_video_frame->data,//原始数据
+					//	original_video_frame->linesize,//原始参数
+					//	0,//转码开始游标，一般为0
+					//	video_AVCodecContext->height,//行数
+					//	video_out_AVFrame->data,//转码后的数据
+					//	video_out_AVFrame->linesize);
 				}
 			}
 		}
 		else if (aVPacket->stream_index == audio_index)
 		{
-			//int ret = avcodec_send_packet(audio_codec_ctx, packet);
+
 			if (avcodec_send_packet(audio_AVCodecContext, aVPacket) >= 0) {
 				fprintf(stderr, "Error submitting the packet to the decoder\n");
 				return 0;
 			}
 
-			while (avcodec_receive_frame(audio_AVCodecContext, original_audio_frame) == 0) {
-
+			ret = avcodec_receive_frame(audio_AVCodecContext, original_audio_frame);
+			if (ret == 0) {
 				//swr_convert(audio_SwrContext,//音频转换上下文
 				//	&audio_out_buffer,//输出缓存
 				//	sample_rate * 2,//每次输出大小
 				//	(const uint8_t**)original_audio_frame->data,//输入数据
 				//	original_audio_frame->nb_samples);//输入
 
-				audio_out_buffer_size = av_samples_get_buffer_size(NULL, nb_channels, original_audio_frame->nb_samples, AVSampleFormat::AV_SAMPLE_FMT_S16, 1);
+				//audio_out_buffer_size = av_samples_get_buffer_size(NULL, nb_channels, original_audio_frame->nb_samples, AVSampleFormat::AV_SAMPLE_FMT_S16, 1);
 				ret = 1;
+				
 			}
 		}
 	}
@@ -326,6 +284,9 @@ int read_frame() {
 	av_packet_unref(aVPacket);
 	av_free(original_audio_frame);
 	av_free(original_video_frame);
+	//original_video_frame = NULL;
+	//original_audio_frame = NULL;
+	printf("释放了!");
 	return ret;
 }
 

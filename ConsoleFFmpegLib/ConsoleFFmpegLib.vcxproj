@@ -156,6 +156,7 @@
     <ClInclude Include="FFMpegAudioPlay.h" />
     <ClInclude Include="FFmpegPushRtmp.h" />
     <ClInclude Include="FFmpegReadCameraZ.h" />
+    <ClInclude Include="MemoryTest.h" />
     <ClInclude Include="PCMTest.h" />
     <ClInclude Include="SDL_LoadImg.h" />
   </ItemGroup>
@@ -163,6 +164,7 @@
     <ClCompile Include="ConsoleFFmpegLib.cpp" />
     <ClCompile Include="FFMpegAudioPlay.cpp" />
     <ClCompile Include="FFmpegPushRtmp.cpp" />
+    <ClCompile Include="MemoryTest.cpp" />
     <ClCompile Include="PCMTest.cpp" />
     <ClCompile Include="SDL_LoadImg.cpp" />
     <ClCompile Include="start.cpp" />

@@ -5,16 +5,17 @@
 #include "ConsoleFFmpegLib.h"
 #include "FFMpegAudioPlay.h"
 #include "PCMTest.h"
+#include "MemoryTest.h"
 
 int main() {
 
-	startReadCameraZ();
+	//startReadCameraZ();
 
 	//initSDL_LoadImg();
 
 	//cffStart();
 
-	//ffap_start();
+	ffap_start();
 
 	//ÍÆËÍrtmp
 	//ffpr_start();
@@ -34,6 +35,8 @@ int main() {
 	//printf("BB:%d\n", oneB[1]);
 	//printf("CC:%d\n", *(oneB + 1));
 	//printf("DD:%d\n",oneB);
+
+	//mt_start();
 
 	return 0;
 }

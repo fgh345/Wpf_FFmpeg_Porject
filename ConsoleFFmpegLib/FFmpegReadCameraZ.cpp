@@ -20,7 +20,8 @@ extern "C"
 //我们要渲染到的窗口
 SDL_Window* frcz_window = NULL;
 
-int frcz_screen_w = 0, frcz_screen_h = 0;
+int frcz_screen_w = 0;
+int frcz_screen_h = 0;
 
 //The window renderer
 SDL_Renderer* frcz_Renderer = NULL;
@@ -36,12 +37,14 @@ SDL_Event frcz_event;
 
 #define SFM_REFRESH_EVENT  (SDL_USEREVENT + 1)
 
-AVPacket* frcz_packet = NULL;
+AVPacket* frcz_packet_video = NULL;
+AVPacket* frcz_packet_audio = NULL;
 
 AVFormatContext* frcz_aVFormatContext_camera = NULL;
 AVFormatContext* frcz_aVFormatContext_audio = NULL;
 
-AVFrame* frcz_aVframe = NULL;
+AVFrame* frcz_aVframe_video = NULL;
+AVFrame* frcz_aVframe_audio = NULL;
 AVFrame* frcz_aVframeYUV = av_frame_alloc();
 
 AVCodecContext* frcz_aVCodecContext_video = NULL;
@@ -257,11 +260,10 @@ int frcz_initFFmpeg() {
 	swr_init(frcz_swrContext);
 #pragma endregion
 
-	frcz_packet = av_packet_alloc();
-	av_init_packet(frcz_packet);
-
-	if (!frcz_packet)
-		return -1;
+	frcz_packet_video = av_packet_alloc();
+	frcz_packet_audio = av_packet_alloc();
+	av_init_packet(frcz_packet_video);
+	av_init_packet(frcz_packet_audio);
 
 	return 0;
 }
@@ -434,24 +436,24 @@ int read_frame_by_camera() {
 	int ret = -1;
 
 	//从packet中解出来的原始视频帧
-	frcz_aVframe = av_frame_alloc();//返回一个填充默认值的AVFrame
+	frcz_aVframe_video = av_frame_alloc();//返回一个填充默认值的AVFrame
 
-	if (av_read_frame(frcz_aVFormatContext_camera, frcz_packet) >= 0) {
+	if (av_read_frame(frcz_aVFormatContext_camera, frcz_packet_video) >= 0) {
 		//av_read_frame:  根据AVFormatContext 读取packet信息
-		if (frcz_packet->stream_index == frcz_video_index)//对比packet->stream_index 的流类型
+		if (frcz_packet_video->stream_index == frcz_video_index)//对比packet->stream_index 的流类型
 		{
 
 			//解码。输入为packet，输出为original_video_frame
-			if (avcodec_send_packet(frcz_aVCodecContext_video, frcz_packet) == 0)//向解码器(AVCodecContext)发送需要解码的数据包(packet),0 表示解码成功
+			if (avcodec_send_packet(frcz_aVCodecContext_video, frcz_packet_video) == 0)//向解码器(AVCodecContext)发送需要解码的数据包(packet),0 表示解码成功
 			{
-				ret = avcodec_receive_frame(frcz_aVCodecContext_video, frcz_aVframe);//AVCodecContext* video_codec_ctx;
+				ret = avcodec_receive_frame(frcz_aVCodecContext_video, frcz_aVframe_video);//AVCodecContext* video_codec_ctx;
 				//avcodec_receive_frame: 从解码器获取解码后的一帧,0表是解释成功
 				if (ret ==0)
 				{
 					//转换像素数据格式
 					sws_scale(frcz_swsContext,
-						(const uint8_t* const*)frcz_aVframe->data,
-						frcz_aVframe->linesize,
+						(const uint8_t* const*)frcz_aVframe_video->data,
+						frcz_aVframe_video->linesize,
 						0,
 						frcz_aVCodecContext_video->height,
 						frcz_aVframeYUV->data,
@@ -468,8 +470,8 @@ int read_frame_by_camera() {
 		}
 	}
 
-	av_packet_unref(frcz_packet);
-	av_free(frcz_aVframe);
+	av_packet_unref(frcz_packet_video);
+	av_free(frcz_aVframe_video);
 	return ret;
 }
 
@@ -479,20 +481,26 @@ int read_frame_by_micphone() {
 	int ret = -1;
 
 	//从packet中解出来的原始视频帧
-	frcz_aVframe = av_frame_alloc();//返回一个填充默认值的AVFrame
+	frcz_aVframe_audio = av_frame_alloc();//返回一个填充默认值的AVFrame
 
-	if (av_read_frame(frcz_aVFormatContext_audio, frcz_packet) >= 0) {
+	if (av_read_frame(frcz_aVFormatContext_audio, frcz_packet_audio) >= 0) {
 		//av_read_frame:  根据AVFormatContext 读取packet信息
-		if (frcz_packet->stream_index == frcz_audio_index)//对比packet->stream_index 的流类型
+		if (frcz_packet_audio->stream_index == frcz_audio_index)//对比packet->stream_index 的流类型
 		{
 			//解码。输入为packet，输出为original_video_frame
-			if (avcodec_send_packet(frcz_aVCodecContext_audio, frcz_packet) == 0)//向解码器(AVCodecContext)发送需要解码的数据包(packet),0 表示解码成功
+			if (avcodec_send_packet(frcz_aVCodecContext_audio, frcz_packet_audio) == 0)//向解码器(AVCodecContext)发送需要解码的数据包(packet),0 表示解码成功
 			{
-				ret = avcodec_receive_frame(frcz_aVCodecContext_audio, frcz_aVframe);//AVCodecContext* video_codec_ctx;
+				ret = avcodec_receive_frame(frcz_aVCodecContext_audio, frcz_aVframe_audio);//AVCodecContext* video_codec_ctx;
 				//avcodec_receive_frame: 从解码器获取解码后的一帧,0表是解释成功
 				if (ret == 0)
 				{
-					swr_convert(frcz_swrContext, &frcz_audio_out_buffer, frcz_audio_out_buffer_size, (const uint8_t**)frcz_aVframe->data, frcz_aVframe->nb_samples);
+					swr_convert(frcz_swrContext, &frcz_audio_out_buffer, frcz_audio_out_buffer_size, (const uint8_t**)frcz_aVframe_audio->data, frcz_aVframe_audio->nb_samples);
+				
+					frcz_audio_len = frcz_audio_out_buffer_size;
+					frcz_audio_pos = (Uint8*)frcz_audio_out_buffer;
+
+					while (frcz_audio_len > 0)//Wait until finish
+						SDL_Delay(1);
 				}
 				else {
 					printf("没读取到!");
@@ -502,8 +510,8 @@ int read_frame_by_micphone() {
 		}
 	}
 
-	av_packet_unref(frcz_packet);
-	av_free(frcz_aVframe);
+	av_packet_unref(frcz_packet_audio);
+	av_free(frcz_aVframe_audio);
 	return ret;
 }
 
@@ -577,7 +585,7 @@ int frcz_open_window_fun() {
 
 		//开启子线程
 		SDL_CreateThread(frcz_vidio_thread, NULL, NULL);
-		SDL_CreateThread(frcz_audio_thread, NULL, NULL);
+		//SDL_CreateThread(frcz_audio_thread, NULL, NULL);
 
 		//While application is running
 		while (!frcz_isQuit)
@@ -604,7 +612,7 @@ int frcz_open_window_fun() {
 
 			}
 			else {
-				SDL_Delay(20);
+				//SDL_Delay(20);
 			}
 
 
@@ -632,12 +640,6 @@ int frcz_audio_thread(void* opaque) {
 
 	while (frcz_event.type != SDL_QUIT) {
 		read_frame_by_micphone();
-
-		frcz_audio_len = frcz_audio_out_buffer_size;
-		frcz_audio_pos = (Uint8*)frcz_audio_out_buffer;
-
-		while (frcz_audio_len > 0)//Wait until finish
-			SDL_Delay(1);
 	}
 
 	return 0;
@@ -645,14 +647,18 @@ int frcz_audio_thread(void* opaque) {
 
 void  frcz_fill_audio_back(void* udata, Uint8* stream, int len) {
 	//SDL 2.0
-	printf("执行了吗");
+	
 
 	SDL_memset(stream, 0, len);
 	if (frcz_audio_len == 0)		/*  Only  play  if  we  have  data  left  */
 		return;
 	len = (len > frcz_audio_len ? frcz_audio_len : len);	/*  Mix  as  much  data  as  possible  */
 
+	
+
 	SDL_MixAudio(stream, frcz_audio_pos, len, SDL_MIX_MAXVOLUME);
 	frcz_audio_pos += len;
 	frcz_audio_len -= len;
+
+	printf("执行了吗 frcz_audio_len:%d\n", frcz_audio_len);
 }
