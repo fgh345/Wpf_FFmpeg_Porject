@@ -113,6 +113,7 @@ void ffap_load_frame() {
 
 	av_packet_unref(ffap_packet);
 	av_free(ffap_aVframe);
+	ffap_aVframe = NULL;
 	printf(" Õ∑≈!\n");
 }
 
