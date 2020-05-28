@@ -154,6 +154,7 @@
   <ItemGroup>
     <ClInclude Include="ConsoleFFmpegLib.h" />
     <ClInclude Include="FFMpegAudioPlay.h" />
+    <ClInclude Include="FFMpegDemuxer.h" />
     <ClInclude Include="FFmpegPushRtmp.h" />
     <ClInclude Include="FFmpegReadCameraZ.h" />
     <ClInclude Include="MemoryTest.h" />
@@ -163,6 +164,7 @@
   <ItemGroup>
     <ClCompile Include="ConsoleFFmpegLib.cpp" />
     <ClCompile Include="FFMpegAudioPlay.cpp" />
+    <ClCompile Include="FFMpegDemuxer.cpp" />
     <ClCompile Include="FFmpegPushRtmp.cpp" />
     <ClCompile Include="MemoryTest.cpp" />
     <ClCompile Include="PCMTest.cpp" />
