@@ -96,8 +96,6 @@ void startReadCameraZ() {
 
 int frcz_initFFmpeg() {
 
-	avformat_network_init();
-
 	avdevice_register_all();
 
 	frcz_aVFormatContext_camera = avformat_alloc_context();
@@ -372,14 +370,14 @@ bool loadCamera()
 	//printf("linesize1:%d\n", frcz_aVframeYUV->linesize[1]);
 	//printf("linesize2:%d\n", frcz_aVframeYUV->linesize[2]);
 
-	SDL_UpdateYUVTexture(frcz_Texture, &frcz_sdlRect,
-		frcz_aVframeYUV->data[0], frcz_aVframeYUV->linesize[0],
-		frcz_aVframeYUV->data[1], frcz_aVframeYUV->linesize[1],
-		frcz_aVframeYUV->data[2], frcz_aVframeYUV->linesize[2]);
+	//SDL_UpdateYUVTexture(frcz_Texture, &frcz_sdlRect,
+	//	frcz_aVframeYUV->data[0], frcz_aVframeYUV->linesize[0],
+	//	frcz_aVframeYUV->data[1], frcz_aVframeYUV->linesize[1],
+	//	frcz_aVframeYUV->data[2], frcz_aVframeYUV->linesize[2]);
 	
 	//printf("data:%6s --- buffer:%6s \n", frcz_aVframeYUV->data[0], frcz_video_out_buffer);
 
-	//SDL_UpdateTexture(frcz_Texture, &frcz_sdlRect, frcz_aVframeYUV->data[0], frcz_aVframeYUV->linesize[0]);
+	SDL_UpdateTexture(frcz_Texture, &frcz_sdlRect, frcz_aVframeYUV->data[0], frcz_aVframeYUV->linesize[0]);
 
 	return true;
 }
@@ -417,6 +415,7 @@ void frcz_closeWindow()
 
 //ÊÍ·Å×ÊÔ´
 void frcz_release() {
+
 	sws_freeContext(frcz_swsContext);
 	frcz_swsContext = NULL;
 
@@ -611,13 +610,6 @@ int frcz_open_window_fun() {
 				SDL_RenderPresent(frcz_Renderer);
 
 			}
-			else {
-				//SDL_Delay(20);
-			}
-
-
-			//Update the surface
-			//SDL_UpdateWindowSurface(frcz_window);
 		}
 	}
 	frcz_closeWindow();

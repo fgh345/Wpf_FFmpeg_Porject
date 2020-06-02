@@ -9,13 +9,13 @@
 
 int main() {
 
-	//startReadCameraZ();
+	startReadCameraZ();
 
 	//initSDL_LoadImg();
 
 	//cffStart();
 
-	ffap_start();
+	//ffap_start();
 
 	//ÍÆËÍrtmp
 	//ffpr_start();

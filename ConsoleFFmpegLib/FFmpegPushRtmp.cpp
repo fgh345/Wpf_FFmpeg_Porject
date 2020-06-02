@@ -49,6 +49,7 @@ int ffpr_initFFmpeg()
 		return -1;
 	}
 
+	//ffpr_aVFormatContext->pb
 
 	if (avformat_find_stream_info(ffpr_aVFormatContext, NULL) < 0)
 	{
@@ -137,7 +138,7 @@ int ffpr_open_rtmp_fun()
 {
 	AVFormatContext* ffpr_aVFormatContext_rtmp = NULL;
 
-	avformat_alloc_output_context2(&ffpr_aVFormatContext_rtmp, NULL, "flv", ffpr_rtmp_url); //RTMP
+	avformat_alloc_output_context2(&ffpr_aVFormatContext_rtmp, NULL, "flv", NULL); //RTMP
 
 	if (!ffpr_aVFormatContext_rtmp) {
 		printf("Could not create output context\n");
@@ -148,6 +149,7 @@ int ffpr_open_rtmp_fun()
 		//Create output AVStream according to input AVStream
 		AVStream* in_stream = ffpr_aVFormatContext->streams[i];
 
+		
 		AVCodec* aVCodec_out = avcodec_find_decoder(AV_CODEC_ID_H264);
 
 		AVStream* out_stream = avformat_new_stream(ffpr_aVFormatContext_rtmp, aVCodec_out);
