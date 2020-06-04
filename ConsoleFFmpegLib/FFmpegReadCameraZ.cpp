@@ -60,8 +60,8 @@ int frcz_audio_index = -1;
 
 SDL_Rect frcz_sdlRect;
 
-int frcz_video_out_buffer_size = 0; //视频输出buffer 大小
-uint8_t* frcz_video_out_buffer;//视频输出buffer
+//int frcz_video_out_buffer_size = 0; //视频输出buffer 大小
+//uint8_t* frcz_video_out_buffer;//视频输出buffer
 
 int frcz_audio_out_buffer_size = -1;   //音频输出buffer 大小
 uint8_t* frcz_audio_out_buffer;//音频输出buffer
@@ -203,24 +203,24 @@ int frcz_initFFmpeg() {
 #pragma region 像素格式转换
 
 	//计算输出缓存
-	frcz_video_out_buffer_size = av_image_get_buffer_size(
-		frcz_pix_format,
-		frcz_aVCodecContext_video->width,
-		frcz_aVCodecContext_video->height,
-		1);
+	//frcz_video_out_buffer_size = av_image_get_buffer_size(
+	//	frcz_pix_format,
+	//	frcz_aVCodecContext_video->width,
+	//	frcz_aVCodecContext_video->height,
+	//	1);
 
 	//输出缓存
-	frcz_video_out_buffer = new uint8_t[frcz_video_out_buffer_size];
+	//frcz_video_out_buffer = new uint8_t[frcz_video_out_buffer_size];
 
 	//准备一些参数，在视频格式转换后，参数将被设置值  这里从源码看 是将 video_out_buffer 填入 video_out_frame->data 里面 所以后面操作 video_out_frame->data 会影响video_out_buffer 
-	av_image_fill_arrays(
-		frcz_aVframeYUV->data,
-		frcz_aVframeYUV->linesize,
-		frcz_video_out_buffer,
-		frcz_pix_format,
-		frcz_aVCodecContext_video->width,
-		frcz_aVCodecContext_video->height,
-		1);
+	//av_image_fill_arrays(
+	//	frcz_aVframeYUV->data,
+	//	frcz_aVframeYUV->linesize,
+	//	frcz_video_out_buffer,
+	//	frcz_pix_format,
+	//	frcz_aVCodecContext_video->width,
+	//	frcz_aVCodecContext_video->height,
+	//	1);
 
 	frcz_swsContext = sws_getContext(
 		frcz_aVCodecContext_video->width,

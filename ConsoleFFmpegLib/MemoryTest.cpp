@@ -12,13 +12,15 @@ extern "C" {
 
 
 void mt_start() {
-	avformat_network_init();//支持网络流
+	//avformat_network_init();//支持网络流
 	avdevice_register_all();//在使用libavdevice之前，必须先运行avdevice_register_all()对设备进行注册
 
 
-	while (1)//读取一帧，直到读取到数据
-	{
-		AVFrame* original_video_frame = av_frame_alloc();//返回一个填充默认值的AVFrame
-		av_free(original_video_frame);
+
+
+	const AVCodec* p;
+	void* i = 0;
+	while ((p = av_codec_iterate(&i))) {
+		printf("cccc:%s \n", p->name);
 	}
 }
