@@ -5,6 +5,7 @@ extern "C"
 #include "libavcodec/avcodec.h"
 #include "libavformat/avformat.h"
 #include "libswscale/swscale.h"
+#include "libswresample/swresample.h"
 #include "libavdevice/avdevice.h"
 #include "libavutil/imgutils.h"
 #include "libavutil/time.h"
@@ -12,7 +13,7 @@ extern "C"
 };
 
 
-char ffpr_filepath[] = "C:\\Users\\Youzh\\Videos\\jxyy.mp4"; //读取本地文件地址
+char ffpr_filepath[] = "C:\\Users\\Youzh\\Videos\\jxyy.mov"; //读取本地文件地址
 //char ffpr_filepath[] = "E:\\BaiduNetdiskDownload\\借东西的小人阿莉埃缇.mkv"; //读取本地文件地址
 //char ffpr_filepath[] = "C:\\Users\\Youzh\\Videos\\jxyy.mp4"; //读取本地文件地址
 //char ffpr_filepath[] = "C:\\Users\\Youzh\\Videos\\jxyy.mp4"; //读取本地文件地址
@@ -21,6 +22,7 @@ char ffpr_filepath[] = "C:\\Users\\Youzh\\Videos\\jxyy.mp4"; //读取本地文件地址
 //char ffpr_rtmp_url[] = "rtmp://192.168.30.20/live/livestream"; //推流地址
 char ffpr_rtmp_url[] = "E:\\flvpull.flv"; //推流地址
 
+struct SwrContext* ffpr_swrContext = NULL;//音频转换
 
 AVFormatContext* ffpr_aVFormatContext = NULL;
 
@@ -40,7 +42,7 @@ void ffpr_start()
 
 int ffpr_initFFmpeg()
 {
-	avformat_network_init();
+	//avformat_network_init();
 
 	//avdevice_register_all();
 
@@ -68,14 +70,18 @@ int ffpr_initFFmpeg()
 		if (ffpr_aVFormatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO)
 		{
 			ffpr_video_index = i;
-			continue;
+			break;
 		}
+	}
+
+	for (int i = 0; i < ffpr_aVFormatContext->nb_streams; i++) {
 		if (ffpr_aVFormatContext->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO)
 		{
 			ffpr_audio_index = i;
-			continue;
+			break;
 		}
 	}
+
 
 	if (ffpr_video_index == -1 || ffpr_audio_index == -1)
 	{
@@ -83,7 +89,7 @@ int ffpr_initFFmpeg()
 		return -1;
 	}
 
-	if (ffpr_video_index >= 0)
+	if (ffpr_video_index >= 100)
 	{
 		//获取视频解码器 AVCodec* ffpr_aVideoCodec
 		avcodec_parameters_to_context(ffpr_aVideoCodecContext, ffpr_aVFormatContext->streams[ffpr_video_index]->codecpar);
@@ -95,19 +101,19 @@ int ffpr_initFFmpeg()
 			printf("Could not allocate ffap_aVideoCodecContext\n");
 		}
 
-		AVCodec* ffpr_aVideoCodec = avcodec_find_decoder(ffpr_aVideoCodecContext->codec_id);
+		//AVCodec* ffpr_aVideoCodec = avcodec_find_decoder(ffpr_aVideoCodecContext->codec_id);
 
-		if (ffpr_aVideoCodec == NULL)
-		{
-			printf("VideoCodec not found.\n");
-			return -1;
-		}
+		//if (ffpr_aVideoCodec == NULL)
+		//{
+		//	printf("VideoCodec not found.\n");
+		//	return -1;
+		//}
 
-		if (avcodec_open2(ffpr_aVideoCodecContext, ffpr_aVideoCodec, NULL) < 0)
-		{
-			printf("Could not open VideoCodec.\n");
-			return -1;
-		}
+		//if (avcodec_open2(ffpr_aVideoCodecContext, ffpr_aVideoCodec, NULL) < 0)
+		//{
+		//	printf("Could not open VideoCodec.\n");
+		//	return -1;
+		//}
 	}
 
 	if (ffpr_audio_index >= 0) {
@@ -121,6 +127,8 @@ int ffpr_initFFmpeg()
 
 		AVCodec* ffpr_aVaudioCodec = avcodec_find_decoder(ffpr_aVAudioCodecContext->codec_id);
 
+		AVCodec* ffpr_aVaudioEnCodec = avcodec_find_encoder(ffpr_aVAudioCodecContext->codec_id);
+
 		if (ffpr_aVaudioCodec == NULL)
 		{
 			printf("AudioCodec not found.\n");
@@ -132,11 +140,30 @@ int ffpr_initFFmpeg()
 			printf("Could not open AudioCodec.\n");
 			return -1;
 		}
+
+		if (avcodec_open2(ffpr_aVAudioCodecContext, ffpr_aVaudioEnCodec, NULL) < 0)
+		{
+			printf("Could not open AudioCodec.\n");
+			return -1;
+		}
 	}
 
 	ffpr_packet = av_packet_alloc();
 	av_init_packet(ffpr_packet);
 
+
+	//Swr
+	ffpr_swrContext = swr_alloc_set_opts(NULL,
+		AV_CH_LAYOUT_STEREO,                                /*out*/
+		AV_SAMPLE_FMT_S16,                              /*out*/
+		44100,                                         /*out*/
+		av_get_default_channel_layout(ffpr_aVAudioCodecContext->channels),                                  /*in*/
+		ffpr_aVAudioCodecContext->sample_fmt,               /*in*/
+		ffpr_aVAudioCodecContext->sample_rate,               /*in*/
+		0,
+		NULL);
+
+	swr_init(ffpr_swrContext);
     return 0;
 }
 
@@ -166,6 +193,7 @@ int ffpr_open_rtmp_fun()
 		AVCodecContext* dest = avcodec_alloc_context3(NULL);
 		//从in_stream读取数据到dest里面
 		int ret = avcodec_parameters_to_context(dest, in_stream->codecpar);
+		
 		if (ret < 0) {
 			printf("Failed to copy context from input to output stream codec context\n");
 			return -1;
@@ -176,6 +204,9 @@ int ffpr_open_rtmp_fun()
 
 		//将dest应用到out_stream里面
 		ret = avcodec_parameters_from_context(out_stream->codecpar, dest);
+
+		out_stream->time_base = in_stream->time_base;
+
 		if (ret < 0) {
 			printf("Failed to copy codec context to out_stream codecpar context\n");
 			return -1;
@@ -195,12 +226,6 @@ int ffpr_open_rtmp_fun()
 		//Copy the settings of AVCodecContext
 		AVCodecContext* dest = avcodec_alloc_context3(NULL);
 
-		//从in_stream读取数据到dest里面
-		//int ret = avcodec_parameters_to_context(dest, in_stream->codecpar);
-		//if (ret < 0) {
-		//	printf("Failed to copy context from input to output stream codec context\n");
-		//	return -1;
-		//}
 		dest->codec_tag = 0;
 		if (ffpr_aVFormatContext_rtmp->oformat->flags & AVFMT_GLOBALHEADER)
 			dest->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
@@ -212,6 +237,9 @@ int ffpr_open_rtmp_fun()
 
 		//将dest应用到out_stream里面
 		int ret = avcodec_parameters_from_context(out_stream->codecpar, dest);
+
+		out_stream->time_base = in_stream->time_base;
+
 		if (ret < 0) {
 			printf("Failed to copy codec context to out_stream codecpar context\n");
 			return -1;
@@ -257,11 +285,74 @@ int ffpr_open_rtmp_fun()
 	int frame_index = 0;//推送的帧计数
 
 	while (1) {
+
 		AVStream* in_stream, * out_stream;
 		//Get an AVPacket
 		ret = av_read_frame(ffpr_aVFormatContext, ffpr_packet);
 		if (ret < 0)
 			break;
+
+		if (!(ffpr_packet->stream_index == ffpr_audio_index || ffpr_packet->stream_index == ffpr_video_index))
+		{
+			continue;
+		}
+
+
+		//尝试转换流
+		if (ffpr_packet->stream_index == ffpr_audio_index)
+		{
+
+			AVFrame* frame_in = av_frame_alloc();
+			AVFrame* frame_out = av_frame_alloc();
+
+			
+
+			if (avcodec_send_packet(ffpr_aVAudioCodecContext, ffpr_packet) == 0)//向解码器(AVCodecContext)发送需要解码的数据包(packet),0 表示解码成功
+			{
+				ret = avcodec_receive_frame(ffpr_aVAudioCodecContext, frame_in);//AVCodecContext* video_codec_ctx;
+				//avcodec_receive_frame: 从解码器获取解码后的一帧,0表是解释成功
+				if (ret == 0)
+				{
+					//av_frame_copy_props(frame_out, frame_in);
+					//av_frame_copy(frame_out, frame_in);
+
+					frame_out->sample_rate = 44100;
+					frame_out->format = frame_in->format;
+					frame_out->nb_samples = frame_in->nb_samples;
+
+					int ret = swr_convert_frame(ffpr_swrContext, frame_out, frame_in);
+					if (ret == 0)
+					{
+						printf("转码成功!\n");
+					}
+					else {
+						printf("转码失败!%d\n", ret);
+					}
+
+					/*if (avcodec_send_frame(ffpr_aVAudioCodecContext, frame_out)==0)
+					{
+						avcodec_receive_packet(ffpr_aVAudioCodecContext, ffpr_packet);
+						printf("封装完成!\n");
+					}
+					else
+					{
+						printf("封装失败!\n");
+					}*/
+
+				}
+				else {
+					printf("没读取到!");
+				}
+
+			}
+			else {
+				printf("解码失败!");
+			}
+		}
+
+
+
+
 		//FIX：No PTS (Example: Raw H.264)
 		//Simple Write PTS
 		if (ffpr_packet->pts == AV_NOPTS_VALUE) {
@@ -292,6 +383,8 @@ int ffpr_open_rtmp_fun()
 				av_usleep(pts_time - now_time);
 		}
 
+		//printf("ffpr_packet->stream_index:%d\n", ffpr_packet->stream_index);
+
 		in_stream = ffpr_aVFormatContext->streams[ffpr_packet->stream_index];
 		out_stream = ffpr_aVFormatContext_rtmp->streams[ffpr_packet->stream_index];
 
@@ -303,7 +396,7 @@ int ffpr_open_rtmp_fun()
 		ffpr_packet->pos = -1;
 		//Print to Screen
 		if (ffpr_packet->stream_index == ffpr_video_index) {
-			//printf("Send %8d video frames to output URL\n", frame_index);
+			printf("Send %8d video frames to output URL\n", frame_index);
 			frame_index++;
 		}
 		//ret = av_write_frame(ofmt_ctx, &pkt);

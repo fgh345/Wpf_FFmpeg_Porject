@@ -245,7 +245,8 @@ int frcz_initFFmpeg() {
 	frcz_audio_out_buffer = new uint8_t[frcz_audio_out_buffer_size];
 
 	//Swr
-	frcz_swrContext = swr_alloc_set_opts(NULL,
+	frcz_swrContext = swr_alloc_set_opts(
+		NULL,
 		AV_CH_LAYOUT_STEREO,                                /*out*/
 		AV_SAMPLE_FMT_S16,                              /*out*/
 		44100,                                         /*out*/
