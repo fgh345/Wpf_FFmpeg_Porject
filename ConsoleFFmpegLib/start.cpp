@@ -18,7 +18,7 @@ int main() {
 	//ffap_start();
 
 	//ÍÆËÍrtmp
-	ffpr_start();
+	//ffpr_start();
 
 	//PCMTest pc = PCMTest();
 
@@ -36,7 +36,7 @@ int main() {
 	//printf("CC:%d\n", *(oneB + 1));
 	//printf("DD:%d\n",oneB);
 
-	//mt_start();
+	mt_start();
 
 	return 0;
 }
