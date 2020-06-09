@@ -13,7 +13,7 @@ extern "C"
 };
 
 
-char ffpr_filepath[] = "C:\\Users\\Youzh\\Videos\\jxyy.mov"; //读取本地文件地址
+char ffpr_filepath[] = "C:\\Users\\Youzh\\Videos\\rain.mp4"; //读取本地文件地址
 //char ffpr_filepath[] = "E:\\BaiduNetdiskDownload\\借东西的小人阿莉埃缇.mkv"; //读取本地文件地址
 //char ffpr_filepath[] = "C:\\Users\\Youzh\\Videos\\jxyy.mp4"; //读取本地文件地址
 //char ffpr_filepath[] = "C:\\Users\\Youzh\\Videos\\jxyy.mp4"; //读取本地文件地址
@@ -292,63 +292,61 @@ int ffpr_open_rtmp_fun()
 		if (ret < 0)
 			break;
 
-		if (!(ffpr_packet->stream_index == ffpr_audio_index || ffpr_packet->stream_index == ffpr_video_index))
+		//if (!(ffpr_packet->stream_index == ffpr_audio_index || ffpr_packet->stream_index == ffpr_video_index))
+		//{
+		//	printf("没有流????");
+		//	continue;
+		//}
+
+		if (ffpr_packet->stream_index != ffpr_video_index)
 		{
 			continue;
 		}
 
 
 		//尝试转换流
-		if (ffpr_packet->stream_index == ffpr_audio_index)
-		{
-
-			AVFrame* frame_in = av_frame_alloc();
-			AVFrame* frame_out = av_frame_alloc();
-
-			
-
-			if (avcodec_send_packet(ffpr_aVAudioCodecContext, ffpr_packet) == 0)//向解码器(AVCodecContext)发送需要解码的数据包(packet),0 表示解码成功
-			{
-				ret = avcodec_receive_frame(ffpr_aVAudioCodecContext, frame_in);//AVCodecContext* video_codec_ctx;
-				//avcodec_receive_frame: 从解码器获取解码后的一帧,0表是解释成功
-				if (ret == 0)
-				{
-					//av_frame_copy_props(frame_out, frame_in);
-					//av_frame_copy(frame_out, frame_in);
-
-					frame_out->sample_rate = 44100;
-					frame_out->format = frame_in->format;
-					frame_out->nb_samples = frame_in->nb_samples;
-
-					int ret = swr_convert_frame(ffpr_swrContext, frame_out, frame_in);
-					if (ret == 0)
-					{
-						printf("转码成功!\n");
-					}
-					else {
-						printf("转码失败!%d\n", ret);
-					}
-
-					/*if (avcodec_send_frame(ffpr_aVAudioCodecContext, frame_out)==0)
-					{
-						avcodec_receive_packet(ffpr_aVAudioCodecContext, ffpr_packet);
-						printf("封装完成!\n");
-					}
-					else
-					{
-						printf("封装失败!\n");
-					}*/
-
-				}
-				else {
-					printf("没读取到!");
-				}
-
-			}
-			else {
-				printf("解码失败!");
-			}
-		}
+		//if (ffpr_packet->stream_index == ffpr_audio_index)
+		//{
+		//	AVFrame* frame_in = av_frame_alloc();
+		//	AVFrame* frame_out = av_frame_alloc();
+		//	
+		//	if (avcodec_send_packet(ffpr_aVAudioCodecContext, ffpr_packet) == 0)//向解码器(AVCodecContext)发送需要解码的数据包(packet),0 表示解码成功
+		//	{
+		//		ret = avcodec_receive_frame(ffpr_aVAudioCodecContext, frame_in);//AVCodecContext* video_codec_ctx;
+		//		//avcodec_receive_frame: 从解码器获取解码后的一帧,0表是解释成功
+		//		if (ret == 0)
+		//		{
+		//			//av_frame_copy_props(frame_out, frame_in);
+		//			//av_frame_copy(frame_out, frame_in);
+		//			frame_out->sample_rate = 44100;
+		//			frame_out->format = frame_in->format;
+		//			frame_out->nb_samples = frame_in->nb_samples;
+		//			int ret = swr_convert_frame(ffpr_swrContext, frame_out, frame_in);
+		//			if (ret == 0)
+		//			{
+		//				printf("转码成功!\n");
+		//			}
+		//			else {
+		//				printf("转码失败!%d\n", ret);
+		//			}
+		//			/*if (avcodec_send_frame(ffpr_aVAudioCodecContext, frame_out)==0)
+		//			{
+		//				avcodec_receive_packet(ffpr_aVAudioCodecContext, ffpr_packet);
+		//				printf("封装完成!\n");
+		//			}
+		//			else
+		//			{
+		//				printf("封装失败!\n");
+		//			}*/
+		//		}
+		//		else {
+		//			printf("没读取到!");
+		//		}
+		//	}
+		//	else {
+		//		printf("解码失败!");
+		//	}
+		//}
 
 
 
@@ -370,17 +368,15 @@ int ffpr_open_rtmp_fun()
 			ffpr_packet->duration = (double)calc_duration / (double)(av_q2d(time_base1) * AV_TIME_BASE);
 		}
 
-		//Important:Delay
+		//Important:Delay 解码延迟 否则视频会瞬间推送完成
 		if (ffpr_packet->stream_index == ffpr_video_index) {
-
-			//printf("Important:Delay=============\n");
 
 			AVRational time_base = ffpr_aVFormatContext->streams[ffpr_video_index]->time_base;
 			AVRational time_base_q = { 1,AV_TIME_BASE };
-			int64_t pts_time = av_rescale_q(ffpr_packet->dts, time_base, time_base_q);
+			int64_t dts_time = av_rescale_q(ffpr_packet->dts, time_base, time_base_q);
 			int64_t now_time = av_gettime() - start_time;
-			if (pts_time > now_time)
-				av_usleep(pts_time - now_time);
+			if (dts_time > now_time)
+				av_usleep(dts_time - now_time);
 		}
 
 		//printf("ffpr_packet->stream_index:%d\n", ffpr_packet->stream_index);
@@ -388,12 +384,18 @@ int ffpr_open_rtmp_fun()
 		in_stream = ffpr_aVFormatContext->streams[ffpr_packet->stream_index];
 		out_stream = ffpr_aVFormatContext_rtmp->streams[ffpr_packet->stream_index];
 
+
+		printf("*** old-> pts:%d---dts:%d---duration:%d ***", ffpr_packet->pts, ffpr_packet->dts, ffpr_packet->duration);
+
 		/* copy packet */
 		//Convert PTS/DTS
-		ffpr_packet->pts = av_rescale_q_rnd(ffpr_packet->pts, in_stream->time_base, out_stream->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
-		ffpr_packet->dts = av_rescale_q_rnd(ffpr_packet->dts, in_stream->time_base, out_stream->time_base, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
+		ffpr_packet->pts = av_rescale_q_rnd(ffpr_packet->pts, in_stream->time_base, out_stream->time_base, (AVRounding)(AV_ROUND_DOWN | AV_ROUND_PASS_MINMAX));
+		ffpr_packet->dts = av_rescale_q_rnd(ffpr_packet->dts, in_stream->time_base, out_stream->time_base, (AVRounding)(AV_ROUND_DOWN | AV_ROUND_PASS_MINMAX));
 		ffpr_packet->duration = av_rescale_q(ffpr_packet->duration, in_stream->time_base, out_stream->time_base);
 		ffpr_packet->pos = -1;
+
+		printf("pts:%d---dts:%d---duration:%d \n", ffpr_packet->pts, ffpr_packet->dts, ffpr_packet->duration);
+
 		//Print to Screen
 		if (ffpr_packet->stream_index == ffpr_video_index) {
 			printf("Send %8d video frames to output URL\n", frame_index);
