@@ -7,6 +7,7 @@
 #include "PCMTest.h"
 #include "MemoryTest.h"
 #include "FFmpegEncodeYUV.h"
+#include "FFmpegEncodePCM.h"
 
 int main() {
 
@@ -18,8 +19,11 @@ int main() {
 
 	//ffap_start();
 
-	//转码
-	ffecyuv_start();
+	//转码YUV
+	//ffecyuv_start();
+
+	//转码PCM
+	ffecpcm_start();
 
 	//推送rtmp
 	//ffpr_start();

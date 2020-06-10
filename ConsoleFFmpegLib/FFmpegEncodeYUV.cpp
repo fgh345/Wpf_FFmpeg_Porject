@@ -2,7 +2,6 @@
 
 extern "C"
 {
-//#include "libavutil/opt.h"
 #include "libavcodec/avcodec.h"
 #include "libavutil/imgutils.h"
 #include "libavformat/avformat.h"
@@ -22,10 +21,9 @@ void ffecyuv_start() {
 	FILE* in_file;
 	fopen_s(&in_file,"..\\..\\Test_480x272.yuv", "rb");
 
-	const char* out_file_path = "result_file_encode_yuv.h264";
+	const char* out_file_path = "result_file_encode_yuv.mp4";
 
-	avformat_alloc_output_context2(&formatContext_output, NULL, "h264", NULL);
-
+	avformat_alloc_output_context2(&formatContext_output, NULL, NULL, out_file_path);
 
 	//Open output URL
 	if (avio_open(&formatContext_output->pb, out_file_path, AVIO_FLAG_READ_WRITE) < 0) {
@@ -33,9 +31,9 @@ void ffecyuv_start() {
 		return;
 	}
 
-	stream_output = avformat_new_stream(formatContext_output, NULL);
-	stream_output->time_base.num = 1;
-	stream_output->time_base.den = 25;
+	stream_output = avformat_new_stream(formatContext_output, NULL); 
+	stream_output->avg_frame_rate.num = 1;
+	stream_output->avg_frame_rate.den = 20;//设置帧率
 
 	codecContext_output = avcodec_alloc_context3(NULL);
 
@@ -46,18 +44,18 @@ void ffecyuv_start() {
 	codecContext_output->width = 480;//视频宽
 	codecContext_output->height = 272;//视频高
 	codecContext_output->time_base.num = 1;//时间基 分子
-	codecContext_output->time_base.den = 25;//时间基 分母
-	codecContext_output->bit_rate = 400000;//比特率 单位b  400kps
-	codecContext_output->gop_size = 250;// 这里二百五 时间基是25一帧 所以每十帧包含一个关键帧(I)
+	codecContext_output->time_base.den = 1;//时间基 分母 //这里必填 但是 设置又无效.....
+	//codecContext_output->bit_rate = 400000;//比特率 单位b  400kps
+	codecContext_output->gop_size = 25;// 关键帧 = 总帧数/gop_size
 	//H264
-	//codecContext->me_range = 16;
-	//codecContext->max_qdiff = 4;
-	//codecContext->qcompress = 0.6;
-	codecContext_output->qmin = 10;
-	codecContext_output->qmax = 51;
+	//codecContext_output->me_range = 16;
+	//codecContext_output->max_qdiff = 4;
+	//codecContext_output->qcompress = 0.6;
+	codecContext_output->qmin = 20;//决定像素块大小 qmin越大  画面块状越明显
+	codecContext_output->qmax = 20;
 
 	//Optional Param
-	codecContext_output->max_b_frames = 3;//猜测 这里是十帧中 一个I帧,三个B帧,六个P帧
+	codecContext_output->max_b_frames = 2;//设置b帧是p帧的倍数
 
 	avcodec_parameters_from_context(stream_output->codecpar, codecContext_output);
 
@@ -93,7 +91,7 @@ void ffecyuv_start() {
 	av_init_packet(packet);
 
 
-	int elementCount = codecContext_output->width * codecContext_output->height * 3 / 2;// y:u:v=4:1:1 
+	int elementCount = codecContext_output->width * codecContext_output->height * 3 / 2;// y:u:v=4:2:0 
 
 	int buffer_size = av_image_get_buffer_size(
 		codecContext_output->pix_fmt,
@@ -103,14 +101,24 @@ void ffecyuv_start() {
 
 	yuv_data_buf = new uint8_t[buffer_size];
 
+	av_image_fill_arrays(
+		frame->data,
+		frame->linesize,
+		yuv_data_buf,
+		codecContext_output->pix_fmt,
+		codecContext_output->width,
+		codecContext_output->height,
+	1);
+
 	int pst_p = 0;
+
+	int64_t duration = av_q2d(stream_output->avg_frame_rate) / av_q2d(stream_output->time_base);
 
 	while (true)
 	{
 		//Read raw YUV data
 		if (fread(yuv_data_buf, 1, elementCount, in_file) <= 0) {
-			printf("Failed to read raw data! \n");
-			return;
+			break;
 		}
 		else if (feof(in_file)) {
 			break;
@@ -120,27 +128,43 @@ void ffecyuv_start() {
 		frame->data[1] = yuv_data_buf + codecContext_output->width * codecContext_output->height;			// U 
 		frame->data[2] = yuv_data_buf + codecContext_output->width * codecContext_output->height * 5 / 4;   // V
 
-		//PTS
-		frame->pts = pst_p++;
 		frame->format = codecContext_output->pix_fmt;
 		frame->width = codecContext_output->width;
 		frame->height = codecContext_output->height;
-		//frame->linesize[0] = codecContext_output->width;
-		//frame->linesize[1] = codecContext_output->width;
-		//frame->linesize[2] = codecContext_output->width;
+		frame->pts = pst_p++ * duration;
+		
 
 		//Encode
 		if (avcodec_send_frame(codecContext_output, frame) == 0) {
 			if (avcodec_receive_packet(codecContext_output, packet)==0)
 			{
-				printf("Succeed to encode %d frame!\n", pst_p);
-				packet->stream_index = stream_output->index;
+				//printf("Succeed to encode %d frame!\n", pst_p);
 
-				av_write_frame(formatContext_output, packet);
+				packet->duration = duration;
+
+				printf("pts:%d--dts:%d--duration:%d\n", packet->pts,packet->dts, packet->duration);
+				
+				int ret = av_write_frame(formatContext_output, packet);
+
+				if(ret != 0)
+					printf("write fail %d!\n", ret);
 
 				av_packet_unref(packet);
 			}
 		}
 	
 	}
+
+	//Write file trailer
+	av_write_trailer(formatContext_output);
+
+	//Clean
+	if (stream_output) {
+		avcodec_close(codecContext_output);
+		av_free(frame);
+	}
+	avio_close(formatContext_output->pb);
+	avformat_free_context(formatContext_output);
+
+	fclose(in_file);
 }
