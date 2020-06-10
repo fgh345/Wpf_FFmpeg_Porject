@@ -32,7 +32,7 @@ Uint8* audio_pos;
 
 struct SwrContext* au_convert_ctx = NULL;
 
-char ffap_filepath[] = "C:\\Users\\Youzh\\Videos\\jxyy.mp4"; //读取本地文件地址
+char ffap_filepath[] = "..\\..\\Test_vedio.mp4"; //读取本地文件地址
 
 FILE* ffap_file_out_pcm;
 
@@ -69,7 +69,7 @@ void ffap_start()
 	}
 
 	
-	fopen_s(&ffap_file_out_pcm, "ffap_out.pcm", "wb+");
+	fopen_s(&ffap_file_out_pcm, "result_file_audio.pcm", "wb+");
 
 
 	while (true)

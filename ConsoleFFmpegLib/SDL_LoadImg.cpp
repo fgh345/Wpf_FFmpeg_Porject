@@ -107,7 +107,7 @@ bool loadMedia()
     bool success = true;
 
     //Load splash image
-    gHelloWorld = SDL_LoadBMP("E:\\GitHub\\Wpf_FFmpeg_Porject\\hello_world.bmp");
+    gHelloWorld = SDL_LoadBMP("..\\..\\Test_hello_world.bmp");
     if (gHelloWorld == NULL)
     {
         printf("Unable to load image %s! SDL Error: %s\n", "hello_world.bmp", SDL_GetError());

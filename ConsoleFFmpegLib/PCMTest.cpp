@@ -4,7 +4,7 @@
 		FILE* fp;
 		fopen_s(&fp,url, "rb+");
 		FILE* fp1;
-		fopen_s(&fp1,"output_8.pcm", "wb+");
+		fopen_s(&fp1,"result_file_to_pcm8.pcm", "wb+");
 
 		int cnt = 0;
 
@@ -53,7 +53,7 @@
 
 
 		FILE* fp1;
-		ret = fopen_s(&fp1,"output_cut.pcm", "wb+");
+		ret = fopen_s(&fp1,"result_file_cut_singlechannel.pcm", "wb+");
 
 		if (ret != 0)
 		{
@@ -61,7 +61,7 @@
 		}
 
 		FILE* fp_stat;
-		ret = fopen_s(&fp_stat,"output_char.txt", "wb+");
+		ret = fopen_s(&fp_stat,"result_file_singlechannel.txt", "wb+");
 
 		if (ret != 0)
 		{
@@ -117,7 +117,7 @@
 
 
 		FILE* fp1;
-		ret = fopen_s(&fp1, "output_cut.pcm", "wb+");
+		ret = fopen_s(&fp1, "result_file_cut.pcm", "wb+");
 
 		if (ret != 0)
 		{
@@ -125,7 +125,7 @@
 		}
 
 		FILE* fp_stat;
-		ret = fopen_s(&fp_stat, "output_short.txt", "wb+");
+		ret = fopen_s(&fp_stat, "result_file_cut.txt", "wb+");
 
 		if (ret != 0)
 		{

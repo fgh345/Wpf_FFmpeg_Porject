@@ -6,6 +6,7 @@
 #include "FFMpegAudioPlay.h"
 #include "PCMTest.h"
 #include "MemoryTest.h"
+#include "FFmpegEncodeYUV.h"
 
 int main() {
 
@@ -17,14 +18,17 @@ int main() {
 
 	//ffap_start();
 
+	//×ªÂë
+	ffecyuv_start();
+
 	//ÍÆËÍrtmp
-	ffpr_start();
+	//ffpr_start();
 
 	//PCMTest pc = PCMTest();
 
-	//pc.simplest_pcm16le_to_pcm8((char*)"Test_44.1k_s16le.pcm");
-	//pc.simplest_pcm16le_cut_singlechannel((char*)"drum.pcm", 2360, 120);
-	//pc.simplest_pcm16le_cut_singlechannel2((char*)"drum.pcm", 2360, 120);
+	//pc.simplest_pcm16le_to_pcm8((char*)"..\\..\\Test_44.1k_s16le.pcm");
+	//pc.simplest_pcm16le_cut_singlechannel((char*)"..\\..\\Test_drum.pcm", 2360, 120);
+	//pc.simplest_pcm16le_cut_singlechannel2((char*)"..\\..\\Test_drum.pcm", 2360, 120);
 
 	//short twoB = 4367;
 	//short* ptwoB = &twoB;
@@ -36,7 +40,7 @@ int main() {
 	//printf("CC:%d\n", *(oneB + 1));
 	//printf("DD:%d\n",oneB);
 
-	mt_start();
+	//mt_start();
 
 	return 0;
 }

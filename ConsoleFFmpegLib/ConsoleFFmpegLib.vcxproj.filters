@@ -36,7 +36,7 @@
     <ClInclude Include="MemoryTest.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="FFMpegDemuxer.h">
+    <ClInclude Include="FFmpegEncodeYUV.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -65,7 +65,7 @@
     <ClCompile Include="MemoryTest.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="FFMpegDemuxer.cpp">
+    <ClCompile Include="FFmpegEncodeYUV.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
