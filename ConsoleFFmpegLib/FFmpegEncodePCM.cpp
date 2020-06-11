@@ -21,11 +21,18 @@ void ffecpcm_start() {
 	FILE* in_file;
 	fopen_s(&in_file, "..\\..\\Test_44.1k_s16le.pcm", "rb");
 
-	const char* out_file_path = "result_file_encode_pcm.mp3";
+	const char* out_file_path = "result_file_encode_pcm.aac";
 
 	uint8_t* pcm_data_buf;
 
-	avformat_alloc_output_context2(&formatContext_output, NULL, NULL, out_file_path);
+	void* i = 0;
+	const AVInputFormat* fmt = NULL;
+	//遍历打印封装格式名
+	while ((fmt = av_demuxer_iterate(&i))) {
+		printf("cccc:%s \n", fmt->name);
+	}
+
+	avformat_alloc_output_context2(&formatContext_output, NULL, "libfdk_aac", out_file_path);
 
 	//Open output URL
 	if (avio_open(&formatContext_output->pb, out_file_path, AVIO_FLAG_READ_WRITE) < 0) {
@@ -61,28 +68,24 @@ void ffecpcm_start() {
 	frame->nb_samples = codecContext_output->frame_size;
 	frame->format = codecContext_output->sample_fmt;
 
-	//写入文件头
-	avformat_write_header(formatContext_output, NULL);
+	int size = av_samples_get_buffer_size(NULL, codecContext_output->channels, codecContext_output->frame_size, codecContext_output->sample_fmt, 1);
+
+	pcm_data_buf = (uint8_t*)av_malloc(size);
+
+	avcodec_fill_audio_frame(frame, codecContext_output->channels, codecContext_output->sample_fmt, (const uint8_t*)pcm_data_buf, size, 1);
 
 	packet = av_packet_alloc();
 	av_init_packet(packet);
 
-	pcm_data_buf = new uint8_t[4];
-
-	int size = av_samples_get_buffer_size(NULL, codecContext_output->channels, codecContext_output->frame_size, codecContext_output->sample_fmt, 1);
-
-	
-	uint8_t* frame_buf = (uint8_t*)av_malloc(size);
-
-	avcodec_fill_audio_frame(frame, codecContext_output->channels, codecContext_output->sample_fmt, (const uint8_t*)frame_buf, size, 1);
-
+	//写入文件头
+	avformat_write_header(formatContext_output, NULL);
 
 	int pst_p = 0;
 
 	while (true)
 	{
 		//Read raw YUV data
-		if (fread(pcm_data_buf, 1, 4, in_file) <= 0) {
+		if (fread(pcm_data_buf, 1, size, in_file) <= 0) {
 			break;
 		}
 		else if (feof(in_file)) {
@@ -91,7 +94,7 @@ void ffecpcm_start() {
 
 		frame->data[0] = pcm_data_buf;
 
-		frame->pts = pst_p++;
+		frame->pts = pst_p++ *100;
 
 
 		//Encode
