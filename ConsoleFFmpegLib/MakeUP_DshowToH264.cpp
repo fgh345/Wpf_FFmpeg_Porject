@@ -7,12 +7,13 @@ extern "C"
 #include "libswscale/swscale.h"
 #include "libavdevice/avdevice.h"
 #include "libavutil/imgutils.h"
+#include "libavutil/time.h"
 };
 
 
 void mp_dth264_start() {
 
-	char device_in_url[] = "video=USB2.0 Camera";
+	char device_in_url[] = "video=Surface Camera Front";//Surface Camera Front  USB2.0 Camera
 	char file_out_path[] = "result_file_camera_to_h264.flv";
 
 	//配置输入
@@ -86,7 +87,7 @@ void mp_dth264_start() {
 
 	AVStream* stream_output = avformat_new_stream(formatContext_output, NULL);
 	stream_output->avg_frame_rate.num = 1;
-	stream_output->avg_frame_rate.den = 30;//设置帧率
+	stream_output->avg_frame_rate.den = 20;//设置帧率
 
 	AVCodecContext* codecContext_output = avcodec_alloc_context3(NULL);
 	codecContext_output->codec_id = formatContext_output->oformat->video_codec;//编码器id
@@ -97,7 +98,7 @@ void mp_dth264_start() {
 	codecContext_output->time_base.num = 1;//时间基 分子
 	codecContext_output->time_base.den = 1;//时间基 分母 //这里必填 但是 设置又无效.....
 	codecContext_output->gop_size = 25;// 关键帧 = 总帧数/gop_size
-	codecContext_output->qmin = 20;//决定像素块大小 qmin越大  画面块状越明显
+	codecContext_output->qmin = 1;//决定像素块大小 qmin越大  画面块状越明显
 	codecContext_output->qmax = 20;
 	//codecContext_output->max_b_frames = 2;//设置b帧是p帧的倍数
 
@@ -125,6 +126,7 @@ void mp_dth264_start() {
 	int pst_p = 0;
 
 	int64_t duration = av_q2d(stream_output->avg_frame_rate) / av_q2d(stream_output->time_base);
+	
 
 	//准备解码
 	AVPacket* avpkt_in = av_packet_alloc();
@@ -135,6 +137,7 @@ void mp_dth264_start() {
 
 	AVFrame* frameOriginal = av_frame_alloc();
 	
+	int64_t w_frame_time_up = av_gettime();
 
 	while (av_read_frame(formatContext_input, avpkt_in)==0)
 	{
@@ -164,7 +167,7 @@ void mp_dth264_start() {
 
 						avpkt_out->duration = duration;
 
-						printf("pts:%d--dts:%d--duration:%d\n", avpkt_out->pts, avpkt_out->dts, avpkt_out->duration);
+						//printf("pts:%d--dts:%d--duration:%d\n", avpkt_out->pts, avpkt_out->dts, avpkt_out->duration);
 
 						int ret = av_write_frame(formatContext_output, avpkt_out);
 
@@ -172,12 +175,25 @@ void mp_dth264_start() {
 							printf("write fail %d!\n", ret);
 
 						av_packet_unref(avpkt_out);
+
+						//做个延迟 避免太快
+
+						int64_t dv = av_gettime() - w_frame_time_up;
+						dv = av_rescale_q(dv, { 1,AV_TIME_BASE }, stream_output->time_base);
+
+						printf("duration:%d ----- dv:%d\n", duration,dv);
+
+						if (dv < duration) {
+							av_usleep(duration - dv);
+						}
+						w_frame_time_up = av_gettime();
+
 					}
 				}
 			}
 		av_packet_unref(avpkt_in);
 
-		if (pst_p==2000)
+		if (pst_p > 500)
 			break;
 	}
 
