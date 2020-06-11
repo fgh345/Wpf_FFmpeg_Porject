@@ -39,7 +39,7 @@ void ffecyuv_start() {
 
 	//codecContext->codec_id =AV_CODEC_ID_HEVC;
 	codecContext_output->codec_id = formatContext_output->oformat->video_codec;//编码器id
-	codecContext_output->codec_type = AVMEDIA_TYPE_VIDEO;//编码器类型
+	codecContext_output->codec_type = AVMEDIA_TYPE_VIDEO;//编码器类型  Test_480x272.yuv必须和次类型相等 否则需要转码
 	codecContext_output->pix_fmt = AV_PIX_FMT_YUV420P;//像素格式
 	codecContext_output->width = 480;//视频宽
 	codecContext_output->height = 272;//视频高

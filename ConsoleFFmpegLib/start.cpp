@@ -8,6 +8,7 @@
 #include "MemoryTest.h"
 #include "FFmpegEncodeYUV.h"
 #include "FFmpegEncodePCM.h"
+#include "MakeUP_DshowToH264.h"
 
 int main() {
 
@@ -22,8 +23,8 @@ int main() {
 	//转码YUV
 	//ffecyuv_start();
 
-	//转码PCM
-	ffecpcm_start();
+	//转码PCM  失败!
+	//ffecpcm_start();
 
 	//推送rtmp
 	//ffpr_start();
@@ -45,6 +46,9 @@ int main() {
 	//printf("DD:%d\n",oneB);
 
 	//mt_start();
+
+	//读取dshow设备编码为h264
+	mp_dth264_start();
 
 	return 0;
 }

@@ -158,6 +158,7 @@
     <ClInclude Include="FFmpegEncodeYUV.h" />
     <ClInclude Include="FFmpegPushRtmp.h" />
     <ClInclude Include="FFmpegReadCameraZ.h" />
+    <ClInclude Include="MakeUP_DshowToH264.h" />
     <ClInclude Include="MemoryTest.h" />
     <ClInclude Include="PCMTest.h" />
     <ClInclude Include="SDL_LoadImg.h" />
@@ -168,6 +169,7 @@
     <ClCompile Include="FFmpegEncodePCM.cpp" />
     <ClCompile Include="FFmpegEncodeYUV.cpp" />
     <ClCompile Include="FFmpegPushRtmp.cpp" />
+    <ClCompile Include="MakeUP_DshowToH264.cpp" />
     <ClCompile Include="MemoryTest.cpp" />
     <ClCompile Include="PCMTest.cpp" />
     <ClCompile Include="SDL_LoadImg.cpp" />

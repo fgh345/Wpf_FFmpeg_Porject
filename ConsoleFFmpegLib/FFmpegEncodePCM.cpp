@@ -6,7 +6,6 @@ extern "C"
 #include "libswresample/swresample.h"
 #include "libavformat/avformat.h"
 };
-
 void ffecpcm_start() {
 
 	AVFormatContext* formatContext_output;
@@ -24,15 +23,9 @@ void ffecpcm_start() {
 	const char* out_file_path = "result_file_encode_pcm.aac";
 
 	uint8_t* pcm_data_buf;
+	uint8_t* frame_data_buf;
 
-	void* i = 0;
-	const AVInputFormat* fmt = NULL;
-	//遍历打印封装格式名
-	while ((fmt = av_demuxer_iterate(&i))) {
-		printf("cccc:%s \n", fmt->name);
-	}
-
-	avformat_alloc_output_context2(&formatContext_output, NULL, "libfdk_aac", out_file_path);
+	avformat_alloc_output_context2(&formatContext_output, NULL, NULL, out_file_path);
 
 	//Open output URL
 	if (avio_open(&formatContext_output->pb, out_file_path, AVIO_FLAG_READ_WRITE) < 0) {
@@ -68,14 +61,37 @@ void ffecpcm_start() {
 	frame->nb_samples = codecContext_output->frame_size;
 	frame->format = codecContext_output->sample_fmt;
 
-	int size = av_samples_get_buffer_size(NULL, codecContext_output->channels, codecContext_output->frame_size, codecContext_output->sample_fmt, 1);
+	int frame_data_size = av_samples_get_buffer_size(NULL, codecContext_output->channels, codecContext_output->frame_size, codecContext_output->sample_fmt, 1);
 
-	pcm_data_buf = (uint8_t*)av_malloc(size);
+	frame_data_buf = (uint8_t*)av_malloc(frame_data_size);
 
-	avcodec_fill_audio_frame(frame, codecContext_output->channels, codecContext_output->sample_fmt, (const uint8_t*)pcm_data_buf, size, 1);
+	avcodec_fill_audio_frame(frame, codecContext_output->channels, codecContext_output->sample_fmt, (const uint8_t*)frame_data_buf, frame_data_size, 1);
+
+	int pcm_data_size = av_samples_get_buffer_size(NULL, 2, 1024, AV_SAMPLE_FMT_S16, 1);
+	pcm_data_buf = (uint8_t*)av_malloc(pcm_data_size);
+
+	AVFrame* framePCM = av_frame_alloc();
+	//avcodec_fill_audio_frame(framePCM, 2, AV_SAMPLE_FMT_S16, (const uint8_t*)pcm_data_buf, pcm_data_size, 1);
+
 
 	packet = av_packet_alloc();
 	av_init_packet(packet);
+
+
+	//Swr
+	SwrContext* swrContext = swr_alloc_set_opts(
+		NULL,
+		AV_CH_LAYOUT_STEREO,              /*out*/
+		AV_SAMPLE_FMT_FLTP,               /*out*/
+		44100,                            /*out*/
+		AV_CH_LAYOUT_STEREO,              /*in*/
+		AV_SAMPLE_FMT_S16,               /*in*/
+		44100,                           /*in*/
+		0,
+		NULL);
+	swr_init(swrContext);
+
+	
 
 	//写入文件头
 	avformat_write_header(formatContext_output, NULL);
@@ -85,14 +101,21 @@ void ffecpcm_start() {
 	while (true)
 	{
 		//Read raw YUV data
-		if (fread(pcm_data_buf, 1, size, in_file) <= 0) {
+		if (fread(pcm_data_buf, 1, pcm_data_size, in_file) <= 0) {
 			break;
 		}
 		else if (feof(in_file)) {
 			break;
 		}
 
-		frame->data[0] = pcm_data_buf;
+		framePCM->data[0] = pcm_data_buf;
+		//framePCM->data[1] = pcm_data_buf + pcm_data_size/2;
+
+		int ret = swr_convert(swrContext, &frame_data_buf, frame_data_size, (const uint8_t**)framePCM->data, 1024);
+
+		printf("ret:%d \n",ret);
+
+		//frame->data[0] = frame_data_buf;
 
 		frame->pts = pst_p++ *100;
 
