@@ -1,5 +1,8 @@
 #include "MakeUP_DshowToH264.h"
 
+
+
+
 extern "C"
 {
 #include "libavcodec/avcodec.h"
@@ -8,23 +11,27 @@ extern "C"
 #include "libavdevice/avdevice.h"
 #include "libavutil/imgutils.h"
 #include "libavutil/time.h"
+#include "SDL.h"
 };
-
 
 void mp_dth264_start() {
 
-	char device_in_url[] = "video=Surface Camera Front";//Surface Camera Front  USB2.0 Camera
+	char device_in_url[] = "video=TC-UB570, Video Capture";//Surface Camera Front | USB2.0 Camera | TC-UB570, Video Capture
 	char file_out_path[] = "result_file_camera_to_h264.flv";
-
+	//char file_out_path[] = "rtmp://192.168.30.20/live/livestream"; //推流地址
 	//配置输入
 
 	avdevice_register_all();
+
+	AVDictionary* options = NULL;
+	//av_dict_set(&options, "list_devices", "true", 0);
+	//av_dict_set(&options, "list_options", "true", 0);
 
 	AVFormatContext* formatContext_input = avformat_alloc_context();
 
 	AVInputFormat* fmt = av_find_input_format("dshow");
 
-	avformat_open_input(&formatContext_input, device_in_url, fmt,NULL);
+	avformat_open_input(&formatContext_input, device_in_url, fmt, &options);
 
 	//avformat_find_stream_info(formatContextInput, NULL);
 
@@ -40,8 +47,11 @@ void mp_dth264_start() {
 		printf("开启解码器失败!");
 
 	AVPixelFormat pix_fmt_out = AV_PIX_FMT_YUV420P;
-	int width_out = codecContext_input->width;
-	int height_out = codecContext_input->width;;
+	//int width_out = codecContext_input->width;
+	//int height_out = codecContext_input->height;
+
+	int width_out = 1280;
+	int height_out = 720;
 
 	AVFrame* frame420p = av_frame_alloc();
 
@@ -55,7 +65,6 @@ void mp_dth264_start() {
 	//输出缓存
 	uint8_t* image_buffer = new uint8_t[image_buffer_size];
 
-	//准备一些参数，在视频格式转换后，参数将被设置值  这里从源码看 是将 video_out_buffer 填入 video_out_frame->data 里面 所以后面操作 video_out_frame->data 会影响video_out_buffer 
 	av_image_fill_arrays(
 		frame420p->data,//out
 		frame420p->linesize,//out
@@ -77,7 +86,7 @@ void mp_dth264_start() {
 
 	//配置输出
 	AVFormatContext* formatContext_output;
-	avformat_alloc_output_context2(&formatContext_output, NULL, NULL, file_out_path);
+	avformat_alloc_output_context2(&formatContext_output, av_guess_format(NULL, ".flv", NULL), "flv", NULL);
 
 	//Open output URL
 	if (avio_open(&formatContext_output->pb, file_out_path, AVIO_FLAG_READ_WRITE) < 0) {
@@ -87,7 +96,7 @@ void mp_dth264_start() {
 
 	AVStream* stream_output = avformat_new_stream(formatContext_output, NULL);
 	stream_output->avg_frame_rate.num = 1;
-	stream_output->avg_frame_rate.den = 20;//设置帧率
+	stream_output->avg_frame_rate.den = 30;//设置帧率
 
 	AVCodecContext* codecContext_output = avcodec_alloc_context3(NULL);
 	codecContext_output->codec_id = formatContext_output->oformat->video_codec;//编码器id
@@ -98,9 +107,9 @@ void mp_dth264_start() {
 	codecContext_output->time_base.num = 1;//时间基 分子
 	codecContext_output->time_base.den = 1;//时间基 分母 //这里必填 但是 设置又无效.....
 	codecContext_output->gop_size = 25;// 关键帧 = 总帧数/gop_size
-	codecContext_output->qmin = 1;//决定像素块大小 qmin越大  画面块状越明显
+	codecContext_output->qmin = 5;//决定像素块大小 qmin越大  画面块状越明显
 	codecContext_output->qmax = 20;
-	//codecContext_output->max_b_frames = 2;//设置b帧是p帧的倍数
+	codecContext_output->max_b_frames = 4;//设置b帧是p帧的倍数
 
 	avcodec_parameters_from_context(stream_output->codecpar, codecContext_output);
 
@@ -137,10 +146,12 @@ void mp_dth264_start() {
 
 	AVFrame* frameOriginal = av_frame_alloc();
 	
-	int64_t w_frame_time_up = av_gettime();
+	int64_t w_frame_time_start;
 
 	while (av_read_frame(formatContext_input, avpkt_in)==0)
 	{
+		w_frame_time_start = av_gettime();
+
 		if (avcodec_send_packet(codecContext_input, avpkt_in) == 0)
 			if (avcodec_receive_frame(codecContext_input, frameOriginal)==0)
 			{
@@ -163,11 +174,11 @@ void mp_dth264_start() {
 				if (avcodec_send_frame(codecContext_output, frame420p) == 0) {
 					if (avcodec_receive_packet(codecContext_output, avpkt_out) == 0)
 					{
-						printf("Succeed to encode %d frame!\n", pst_p++);
+						//printf("Succeed to encode %d frame!\n", pst_p++);
 
 						avpkt_out->duration = duration;
 
-						//printf("pts:%d--dts:%d--duration:%d\n", avpkt_out->pts, avpkt_out->dts, avpkt_out->duration);
+					    //printf("pts:%d--dts:%d--duration:%d\n", avpkt_out->pts, avpkt_out->dts, avpkt_out->duration);
 
 						int ret = av_write_frame(formatContext_output, avpkt_out);
 
@@ -175,28 +186,27 @@ void mp_dth264_start() {
 							printf("write fail %d!\n", ret);
 
 						av_packet_unref(avpkt_out);
+						
 
-						//做个延迟 避免太快
+						//控制帧率
 
-						int64_t dv = av_gettime() - w_frame_time_up;
-						dv = av_rescale_q(dv, { 1,AV_TIME_BASE }, stream_output->time_base);
+						int64_t cha = duration * 1000 - (av_gettime() - w_frame_time_start);//大
+						if (cha > 0)
+							av_usleep(cha);
 
-						printf("duration:%d ----- dv:%d\n", duration,dv);
 
-						if (dv < duration) {
-							av_usleep(duration - dv);
-						}
-						w_frame_time_up = av_gettime();
+						int64_t dv = av_gettime() - w_frame_time_start;//大
+						int real_frame_rate = stream_output->time_base.den/av_rescale_q(dv, { 1,AV_TIME_BASE }, stream_output->time_base);
+						printf("实际帧率:%d\n", real_frame_rate);
 
 					}
 				}
 			}
 		av_packet_unref(avpkt_in);
 
-		if (pst_p > 500)
+		if (pst_p > 900)
 			break;
 	}
-
 	
 	//Write file trailer
 	av_write_trailer(formatContext_output);
@@ -209,4 +219,15 @@ void mp_dth264_start() {
 	avio_close(formatContext_output->pb);
 	avformat_free_context(formatContext_output);
 
+}
+
+
+int mp_dth264_thread(void* opaque) {
+
+	//while (true)
+	//{
+	//	SDL_Delay(mp_dth264_duration);
+	//}
+	
+	return 0;
 }

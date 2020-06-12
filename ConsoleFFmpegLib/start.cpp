@@ -9,6 +9,7 @@
 #include "FFmpegEncodeYUV.h"
 #include "FFmpegEncodePCM.h"
 #include "MakeUP_DshowToH264.h"
+#include "MakeUP_DshowToAAC.h"
 
 int main() {
 
@@ -50,5 +51,7 @@ int main() {
 	//读取dshow设备编码为h264
 	mp_dth264_start();
 
+	//读取dshow设备编码为aac
+	//mp_dtaac_start();
 	return 0;
 }
