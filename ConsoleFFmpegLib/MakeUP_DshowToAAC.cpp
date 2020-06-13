@@ -13,7 +13,7 @@ extern "C"
 void mp_dtaac_start() {
 
 	char device_in_url[] = "audio=HKZ (Realtek High Definition Audio(SST))";//麦克风阵列 (Realtek High Definition Audio(SST)) | ub570 (TC-UB570, Audio Capture)
-	char file_out_path[] = "result_file_microphone_to_aac.flv";
+	char file_out_path[] = "result_file_microphone_to_aac.aac";
 	//char file_out_path[] = "rtmp://192.168.30.20/live/livestream"; //推流地址
 	//配置输入
 
@@ -50,7 +50,7 @@ void mp_dtaac_start() {
 	uint64_t out_channel_layout = AV_CH_LAYOUT_STEREO;
 
 	AVFormatContext* formatContext_output;
-	avformat_alloc_output_context2(&formatContext_output, av_guess_format(NULL, ".mov", NULL), "flv", NULL);
+	avformat_alloc_output_context2(&formatContext_output, av_guess_format(NULL, ".mov", NULL), NULL, NULL);
 
 	//Open output URL
 	if (avio_open(&formatContext_output->pb, file_out_path, AVIO_FLAG_READ_WRITE) < 0) {
@@ -67,8 +67,10 @@ void mp_dtaac_start() {
 	codecContext_output->sample_rate = out_sample_rate;
 	codecContext_output->channel_layout = out_channel_layout;
 	codecContext_output->channels = av_get_channel_layout_nb_channels(out_channel_layout);
-	codecContext_output->bit_rate = 128000;
+	codecContext_output->bit_rate = 64000;
 	codecContext_output->frame_size = 1024;
+	codecContext_output->codec_tag = 0;
+	codecContext_output->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
 
 	avcodec_parameters_from_context(stream_output->codecpar, codecContext_output);
@@ -98,6 +100,7 @@ void mp_dtaac_start() {
 	frameAAC->nb_samples = codecContext_output->frame_size;
 	frameAAC->format = out_sample_fmt;
 	frameAAC->channel_layout = out_channel_layout;
+
 	av_frame_get_buffer(frameAAC, 1);
 
 
@@ -127,12 +130,15 @@ void mp_dtaac_start() {
 		if (avcodec_send_packet(codecContext_input, avpkt_in) == 0)
 			if (avcodec_receive_frame(codecContext_input, frameOriginal) == 0)
 			{
-				
+				printf("opkt:%s\n", frameOriginal->data[0]);
 
-				//转换像素数据格式
+				//转换数据格式
 				int ret = swr_convert(swrContext, frameAAC->data, frameAAC->nb_samples, (const uint8_t**)frameOriginal->data, frameOriginal->nb_samples);
-				printf("ret= %d\n", ret);
+				if (ret < 0)
+					break;
 				
+				//printf("spkt:%s\n", frameAAC->data[0]);
+
 				int64_t pts= av_gettime() - time_start;
 
 				frameAAC->pts = av_rescale_q(pts,  { 1,AV_TIME_BASE }, stream_output->time_base);;
@@ -151,17 +157,6 @@ void mp_dtaac_start() {
 							printf("write fail %d!\n", ret);
 
 						av_packet_unref(avpkt_out);
-
-						//做个延迟 避免太快
-
-						//int64_t dv = av_gettime() - w_frame_time_up;
-						//int64_t duration_new = av_rescale_q(duration, stream_output->time_base, { 1,AV_TIME_BASE });
-
-						//if (dv < duration) {
-						//	printf("sleep:%d \n", duration_new - dv);
-						//	av_usleep(duration_new - dv);
-						//}
-						//w_frame_time_up = av_gettime();
 
 					}
 				}
