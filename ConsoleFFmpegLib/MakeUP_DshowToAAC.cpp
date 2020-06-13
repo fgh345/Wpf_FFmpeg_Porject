@@ -103,12 +103,7 @@ void mp_dtaac_start() {
 
 	//配置音频编码转换
 
-	//align(0 = default, 1 = 不对齐)
-	//int samples_buffer_size = av_samples_get_buffer_size(NULL, av_get_channel_layout_nb_channels(out_channel_layout), codecContext_output->frame_size, out_sample_fmt, 1);
-
-	//uint8_t* samples_buffer = new uint8_t[samples_buffer_size];
-
-	////Swr
+	//Swr
 	SwrContext* swrContext = swr_alloc_set_opts(
 		NULL,
 		out_channel_layout,                            /*out*/
@@ -121,13 +116,6 @@ void mp_dtaac_start() {
 		NULL);
 
 	swr_init(swrContext);
-
-	
-
-	//avcodec_fill_audio_frame(frameAAC,
-	//	codecContext_output->channels,
-	//	codecContext_output->sample_fmt,
-	//	(const uint8_t*)samples_buffer, samples_buffer_size, 1);
 
 	//写入文件头
 	avformat_write_header(formatContext_output, NULL);
