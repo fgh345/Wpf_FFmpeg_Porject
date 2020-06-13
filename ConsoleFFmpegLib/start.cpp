@@ -49,9 +49,9 @@ int main() {
 	//mt_start();
 
 	//读取dshow设备编码为h264
-	mp_dth264_start();
+	//mp_dth264_start();
 
 	//读取dshow设备编码为aac
-	//mp_dtaac_start();
+	mp_dtaac_start();
 	return 0;
 }

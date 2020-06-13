@@ -13,9 +13,9 @@ extern "C"
 };
 
 
-//char ffpr_filepath[] = "..\\..\\Test_vedio.mp4"; //读取本地文件地址
+char ffpr_filepath[] = "..\\..\\Test_vedio.mp4"; //读取本地文件地址
 //char ffpr_filepath[] = "E:\\Download\\GOPR4656.MP4"; //读取本地文件地址
-char ffpr_filepath[] = "C:\\Users\\Youzh\\Videos\\rain.mp4"; //读取本地文件地址
+//char ffpr_filepath[] = "C:\\Users\\Youzh\\Videos\\rain.mp4"; //读取本地文件地址
 //char ffpr_filepath[] = "C:\\Users\\Youzh\\Videos\\jxyy.mp4"; //读取本地文件地址
 
 

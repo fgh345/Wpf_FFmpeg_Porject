@@ -3,3 +3,4 @@ x64/
 WpfFFmpegCore/bin/
 WpfFFmpegCore/obj/
 *.yuv
+ConsoleFFmpegLib/dll/result_file_microphone_to_aac.flv

@@ -16,7 +16,7 @@ extern "C"
 
 void mp_dth264_start() {
 
-	char device_in_url[] = "video=TC-UB570, Video Capture";//Surface Camera Front | USB2.0 Camera | TC-UB570, Video Capture
+	char device_in_url[] = "video=Surface Camera Front";//Surface Camera Front | USB2.0 Camera | TC-UB570, Video Capture
 	char file_out_path[] = "result_file_camera_to_h264.flv";
 	//char file_out_path[] = "rtmp://192.168.30.20/live/livestream"; //推流地址
 	//配置输入
@@ -47,11 +47,11 @@ void mp_dth264_start() {
 		printf("开启解码器失败!");
 
 	AVPixelFormat pix_fmt_out = AV_PIX_FMT_YUV420P;
-	//int width_out = codecContext_input->width;
-	//int height_out = codecContext_input->height;
+	int width_out = codecContext_input->width;
+	int height_out = codecContext_input->height;
 
-	int width_out = 1280;
-	int height_out = 720;
+	//int width_out = 1280;
+	//int height_out = 720;
 
 	AVFrame* frame420p = av_frame_alloc();
 
@@ -86,7 +86,7 @@ void mp_dth264_start() {
 
 	//配置输出
 	AVFormatContext* formatContext_output;
-	avformat_alloc_output_context2(&formatContext_output, av_guess_format(NULL, ".flv", NULL), "flv", NULL);
+	avformat_alloc_output_context2(&formatContext_output, av_guess_format(NULL, ".mov", NULL), "flv", NULL);
 
 	//Open output URL
 	if (avio_open(&formatContext_output->pb, file_out_path, AVIO_FLAG_READ_WRITE) < 0) {
@@ -96,7 +96,7 @@ void mp_dth264_start() {
 
 	AVStream* stream_output = avformat_new_stream(formatContext_output, NULL);
 	stream_output->avg_frame_rate.num = 1;
-	stream_output->avg_frame_rate.den = 30;//设置帧率
+	stream_output->avg_frame_rate.den = 20;//设置帧率
 
 	AVCodecContext* codecContext_output = avcodec_alloc_context3(NULL);
 	codecContext_output->codec_id = formatContext_output->oformat->video_codec;//编码器id
@@ -106,8 +106,8 @@ void mp_dth264_start() {
 	codecContext_output->height = height_out;//视频高
 	codecContext_output->time_base.num = 1;//时间基 分子
 	codecContext_output->time_base.den = 1;//时间基 分母 //这里必填 但是 设置又无效.....
-	codecContext_output->gop_size = 25;// 关键帧 = 总帧数/gop_size
-	codecContext_output->qmin = 5;//决定像素块大小 qmin越大  画面块状越明显
+	codecContext_output->gop_size = 10;// 关键帧 = 总帧数/gop_size
+	codecContext_output->qmin = 4;//决定像素块大小 qmin越大  画面块状越明显
 	codecContext_output->qmax = 20;
 	codecContext_output->max_b_frames = 4;//设置b帧是p帧的倍数
 
@@ -120,7 +120,7 @@ void mp_dth264_start() {
 	AVDictionary* param = 0;
 	//H.264
 	if (codecContext_output->codec_id == AV_CODEC_ID_H264) {
-		av_dict_set(&param, "preset", "slow", 0);
+		av_dict_set(&param, "preset", "superfast", 0);//superfast slow
 		av_dict_set(&param, "tune", "zerolatency", 0);
 	}
 	//处理编码器
@@ -189,10 +189,13 @@ void mp_dth264_start() {
 						
 
 						//控制帧率
+						int64_t duration_new = av_rescale_q(duration,  stream_output->time_base, { 1,AV_TIME_BASE });
+						int64_t spanTime = duration_new - (av_gettime() - w_frame_time_start);
 
-						int64_t cha = duration * 1000 - (av_gettime() - w_frame_time_start);//大
-						if (cha > 0)
-							av_usleep(cha);
+						printf("duration_new:%d --- %d  --- %d\n", duration_new, duration, spanTime);
+
+						if (spanTime > 0)
+							av_usleep(spanTime);
 
 
 						int64_t dv = av_gettime() - w_frame_time_start;//大
@@ -204,7 +207,7 @@ void mp_dth264_start() {
 			}
 		av_packet_unref(avpkt_in);
 
-		if (pst_p > 900)
+		if (pst_p > 200)
 			break;
 	}
 	
