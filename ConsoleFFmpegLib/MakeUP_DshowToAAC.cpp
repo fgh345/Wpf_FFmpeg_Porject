@@ -12,8 +12,8 @@ extern "C"
 
 void mp_dtaac_start() {
 
-	char device_in_url[] = "audio=virtual-audio-capturer";//麦克风阵列 (Realtek High Definition Audio(SST)) | ub570 (TC-UB570, Audio Capture)
-	char file_out_path[] = "result_file_microphone_to_aac.aac";
+	char device_in_url[] = "audio=HKZ (Realtek High Definition Audio(SST))";//HKZ (Realtek High Definition Audio(SST)) | ub570 (TC-UB570, Audio Capture) | virtual-audio-capturer
+	char file_out_path[] = "result_file_microphone_to_aac.flv";
 	//char file_out_path[] = "rtmp://192.168.30.20/live/livestream"; //推流地址
 	//配置输入
 
@@ -145,7 +145,7 @@ void mp_dtaac_start() {
 				printf("frameOriginal->nb_samples:%d\n", frameOriginal->nb_samples);
 
 				//转换数据格式
-				int ret = swr_convert(swrContext, frameAAC->data, frameOriginal->nb_samples, (const uint8_t**)frameOriginal->data, frameOriginal->nb_samples);
+				int ret = swr_convert(swrContext, frameAAC->data, 1024, (const uint8_t**)frameOriginal->data, 1024);
 				if (ret < 0)
 					break;
 				
