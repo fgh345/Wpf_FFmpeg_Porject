@@ -247,9 +247,9 @@ int frcz_initFFmpeg() {
 
 	//int64_t in_chn_layout = av_get_default_channel_layout(frcz_aVCodecContext_audio->channels);
 
-	//frcz_audio_out_buffer_size = av_samples_get_buffer_size(NULL, av_get_channel_layout_nb_channels(AV_CH_LAYOUT_STEREO), 1024, AV_SAMPLE_FMT_S16, 1);
+	frcz_audio_out_buffer_size = av_samples_get_buffer_size(NULL, av_get_channel_layout_nb_channels(AV_CH_LAYOUT_STEREO), 1024, AV_SAMPLE_FMT_S16, 1);
 
-	////outBuff = (unsigned char*)av_malloc(MAX_AUDIO_FRAME_SIZE * 2); //Ë«ÉùµÀ
+	//outBuff = (unsigned char*)av_malloc(MAX_AUDIO_FRAME_SIZE * 2); //Ë«ÉùµÀ
 
 	//frcz_audio_out_buffer = new uint8_t[frcz_audio_out_buffer_size];
 

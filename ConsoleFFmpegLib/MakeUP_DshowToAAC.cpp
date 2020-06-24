@@ -7,13 +7,14 @@ extern "C"
 #include "libswresample/swresample.h"
 #include "libavdevice/avdevice.h"
 #include "libavutil/time.h"
+#include "SDL.h"
 };
 
 
 void mp_dtaac_start() {
 
-	char device_in_url[] = "audio=HKZ (Realtek High Definition Audio(SST))";//HKZ (Realtek High Definition Audio(SST)) | ub570 (TC-UB570, Audio Capture) | virtual-audio-capturer
-	char file_out_path[] = "result_file_microphone_to_aac.flv";
+	char device_in_url[] = "audio=virtual-audio-capturer";//HKZ (Realtek High Definition Audio(SST)) | ub570 (TC-UB570, Audio Capture) | virtual-audio-capturer
+	char file_out_path[] = "result_file_microphone_to_aac.aac";
 	//char file_out_path[] = "rtmp://192.168.30.20/live/livestream"; //推流地址
 	//配置输入
 
@@ -36,7 +37,7 @@ void mp_dtaac_start() {
 
 	avformat_open_input(&formatContext_input, device_in_url, fmt, &options);
 
-	//avformat_find_stream_info(formatContext_input, NULL);
+	avformat_find_stream_info(formatContext_input, NULL);
 
 	AVStream* stream_input = formatContext_input->streams[0];
 	
@@ -46,6 +47,7 @@ void mp_dtaac_start() {
 	//处理解码器
 
 	AVCodecContext* codecContext_input = avcodec_alloc_context3(NULL);
+	codecContext_input->channel_layout = AV_CH_LAYOUT_STEREO;
 	avcodec_parameters_to_context(codecContext_input, stream_input->codecpar);
 	AVCodec* codec_input = avcodec_find_decoder(codecContext_input->codec_id);
 
@@ -54,12 +56,12 @@ void mp_dtaac_start() {
 
 	//配置输出
 
-	int out_sample_rate = 44100;
+	int out_sample_rate = 48000;
 	AVSampleFormat out_sample_fmt = AV_SAMPLE_FMT_FLTP;
 	uint64_t out_channel_layout = AV_CH_LAYOUT_STEREO;
 
 	AVFormatContext* formatContext_output;
-	avformat_alloc_output_context2(&formatContext_output, av_guess_format("", ".mov", NULL), NULL, NULL);
+	avformat_alloc_output_context2(&formatContext_output, av_guess_format("", ".aac", NULL), NULL, NULL);
 
 	//Open output URL
 	if (avio_open(&formatContext_output->pb, file_out_path, AVIO_FLAG_READ_WRITE) < 0) {
@@ -109,9 +111,11 @@ void mp_dtaac_start() {
 	AVFrame* frameOriginal = av_frame_alloc();
 	AVFrame* frameAAC = av_frame_alloc();
 	
-	frameAAC->nb_samples = codecContext_output->frame_size;
+	frameAAC->nb_samples = 1024;
 	frameAAC->format = out_sample_fmt;
 	frameAAC->channel_layout = out_channel_layout;
+	frameAAC->channels = av_get_channel_layout_nb_channels(out_channel_layout);
+	frameAAC->sample_rate = out_sample_rate;
 
 	av_frame_get_buffer(frameAAC, 1);
 
@@ -132,8 +136,16 @@ void mp_dtaac_start() {
 
 	swr_init(swrContext);
 
+
+	int f_size1 = av_samples_get_buffer_size(NULL, av_get_channel_layout_nb_channels(AV_CH_LAYOUT_STEREO), 1024, AV_SAMPLE_FMT_S16, 1);
+	int f_size2 = av_samples_get_buffer_size(NULL, av_get_channel_layout_nb_channels(AV_CH_LAYOUT_STEREO), 1024, AV_SAMPLE_FMT_FLTP, 1);
+
+
+	//outBuff = (unsigned char*)av_malloc(MAX_AUDIO_FRAME_SIZE * 2); //双声道
+
+
 	//写入文件头
-	avformat_write_header(formatContext_output, NULL);
+	//avformat_write_header(formatContext_output, NULL);
 
 	int64_t time_start= av_gettime();
 
@@ -142,21 +154,24 @@ void mp_dtaac_start() {
 		if (avcodec_send_packet(codecContext_input, avpkt_in) == 0)
 			if (avcodec_receive_frame(codecContext_input, frameOriginal) == 0)
 			{
-				printf("frameOriginal->nb_samples:%d\n", frameOriginal->nb_samples);
+
+				
+
+				//printf("frameOriginal->nb_samples:%d\n", sizeof(*frameOriginal->data[0]));
 
 				//转换数据格式
-				int ret = swr_convert(swrContext, frameAAC->data, 1024, (const uint8_t**)frameOriginal->data, 1024);
+				int ret = swr_convert(swrContext, frameAAC->data, frameOriginal->nb_samples, (const uint8_t**)frameOriginal->data, frameOriginal->nb_samples);
 				if (ret < 0)
 					break;
 				
+
+				printf("实际samples:%d\n", ret);
 				
-				int audioNum = out_sample_rate / frameAAC->nb_samples;
+				int audioNum = out_sample_rate / frameOriginal->nb_samples;
 
+				int64_t pts= out_sample_rate/codecContext_input->time_base.den;
 
-
-				int64_t pts= 1000 / audioNum;
-
-				frameAAC->pts = pst_p * pts;
+				frameAAC->pts = pst_p++ * 1024;
 
 				printf("frameAAC->pts:%d\n", frameAAC->pts);
 
@@ -164,7 +179,7 @@ void mp_dtaac_start() {
 				if (avcodec_send_frame(codecContext_output, frameAAC) == 0) {
 					if (avcodec_receive_packet(codecContext_output, avpkt_out) == 0)
 					{
-						printf("Succeed to encode %d frame!\n", pst_p++);
+						//printf("Succeed to encode %d frame!\n", pst_p++);
 
 						printf("pts:%d--dts:%d--duration:%d\n", avpkt_out->pts, avpkt_out->dts, avpkt_out->duration);
 
@@ -180,13 +195,16 @@ void mp_dtaac_start() {
 			}
 		av_packet_unref(avpkt_in);
 
+
 		if (pst_p > 1000)
 			break;
+
+		
 	}
 
 
 	//Write file trailer
-	av_write_trailer(formatContext_output);
+	//av_write_trailer(formatContext_output);
 
 	//Clean
 	if (stream_output) {
