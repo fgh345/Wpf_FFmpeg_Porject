@@ -53,5 +53,7 @@ int main() {
 
 	//读取dshow设备编码为aac
 	mp_dtaac_start();
+
 	return 0;
 }
+
