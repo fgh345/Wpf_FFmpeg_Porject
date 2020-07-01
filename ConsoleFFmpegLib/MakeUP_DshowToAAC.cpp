@@ -118,7 +118,28 @@ void mp_dtaac_start() {
 	frameAAC->channels = av_get_channel_layout_nb_channels(out_channel_layout);
 	frameAAC->sample_rate = out_sample_rate;
 
-	av_frame_get_buffer(frameAAC, 1);
+
+	
+
+	//av_frame_get_buffer(frameAAC, 1);
+
+
+	int audio_out_buffer_size = av_samples_get_buffer_size(NULL, av_get_channel_layout_nb_channels(AV_CH_LAYOUT_STEREO), 1024, AV_SAMPLE_FMT_FLTP, 1);
+	uint8_t* audio_out_buffer = (uint8_t*)av_malloc(audio_out_buffer_size);
+
+	
+	int cc = avcodec_fill_audio_frame(frameAAC, av_get_channel_layout_nb_channels(AV_CH_LAYOUT_STEREO), AV_SAMPLE_FMT_FLTP, audio_out_buffer, audio_out_buffer_size,1);
+
+	//int dd = sizeof(*audio_out_buffer);
+
+	uint8_t** ddd = &audio_out_buffer;
+	uint8_t** eee = (uint8_t**)audio_out_buffer;
+
+	printf("\n audio_out_buffer_size: %p\n", eee);
+	printf("\n audio_out_buffer_size: %p\n", eee+1);
+	//printf("\n audio_out_buffer_size: %d\n", *(audio_out_buffer + 2));
+
+	
 
 
 	//配置音频编码转换
@@ -151,27 +172,19 @@ void mp_dtaac_start() {
 			{
 
 				//转换数据格式
-				int ret = swr_convert(swrContext, frameAAC->data, frameOriginal->nb_samples, (const uint8_t**)frameOriginal->data, frameOriginal->nb_samples);
+				int ret = swr_convert(swrContext, (uint8_t**)audio_out_buffer, 15, (const uint8_t**)frameOriginal->data, frameOriginal->nb_samples);
 				if (ret < 0)
 					break;
 				
-
 				printf("实际samples:%d\n", ret);
-				
-				//int audioNum = out_sample_rate / frameOriginal->nb_samples;
 
-				//int64_t pts= out_sample_rate/codecContext_input->time_base.den;
-
-				frameAAC->pts = av_rescale_q(pst_p,codecContext_output->time_base, stream_output->time_base);
-
-				//printf("frameAAC->pts:%d\n", frameAAC->pts);
+				//frameAAC->data[0] = audio_out_buffer;
 
 				//Encode
+				frameAAC->pts = av_rescale_q(pst_p, codecContext_output->time_base, stream_output->time_base);
 				if (avcodec_send_frame(codecContext_output, frameAAC) == 0) {
 					if (avcodec_receive_packet(codecContext_output, avpkt_out) == 0)
 					{
-
-						
 
 						printf("pts:%d--dts:%d--duration:%d--pst_p:%d\n", avpkt_out->pts, avpkt_out->dts, avpkt_out->duration, pst_p++);
 
