@@ -15,8 +15,11 @@ void mp_dtaac_start() {
 
 	char device_in_url[] = "audio=virtual-audio-capturer";//HKZ (Realtek High Definition Audio(SST)) | ub570 (TC-UB570, Audio Capture) | virtual-audio-capturer
 	char file_out_path[] = "result_file_microphone_to_aac.aac";
+	FILE* out_Pcm_File;
 	//char file_out_path[] = "rtmp://192.168.30.20/live/livestream"; //ÍÆÁ÷µØÖ·
 	//ÅäÖÃÊäÈë
+
+	fopen_s(&out_Pcm_File, "result_file_microphone.pcm", "wb+");
 
 	avdevice_register_all();
 
@@ -92,8 +95,6 @@ void mp_dtaac_start() {
 
 	//´¦Àí±àÂëÆ÷
 
-	//printf("±àÂëÆ÷id:%d\n", codecContext_output->codec_id);
-
 	AVCodec* encoder = avcodec_find_encoder(codecContext_output->codec_id);
 	if (avcodec_open2(codecContext_output, encoder, NULL) < 0)
 		printf("¿ªÆô±àÂëÆ÷Ê§°Ü!");
@@ -118,33 +119,9 @@ void mp_dtaac_start() {
 	frameAAC->channels = av_get_channel_layout_nb_channels(out_channel_layout);
 	frameAAC->sample_rate = out_sample_rate;
 
-
-	
-
-	//av_frame_get_buffer(frameAAC, 1);
-
-
-	int audio_out_buffer_size = av_samples_get_buffer_size(NULL, av_get_channel_layout_nb_channels(AV_CH_LAYOUT_STEREO), 1024, AV_SAMPLE_FMT_FLTP, 1);
-	uint8_t* audio_out_buffer = (uint8_t*)av_malloc(audio_out_buffer_size);
-
-	
-	int cc = avcodec_fill_audio_frame(frameAAC, av_get_channel_layout_nb_channels(AV_CH_LAYOUT_STEREO), AV_SAMPLE_FMT_FLTP, audio_out_buffer, audio_out_buffer_size,1);
-
-	//int dd = sizeof(*audio_out_buffer);
-
-	uint8_t** ddd = &audio_out_buffer;
-	uint8_t** eee = (uint8_t**)audio_out_buffer;
-
-	printf("\n audio_out_buffer_size: %p\n", eee);
-	printf("\n audio_out_buffer_size: %p\n", eee+1);
-	//printf("\n audio_out_buffer_size: %d\n", *(audio_out_buffer + 2));
-
-	
-
+	av_frame_get_buffer(frameAAC, 1);
 
 	//ÅäÖÃÒôÆµ±àÂë×ª»»
-
-	//Swr
 	SwrContext* swrContext = swr_alloc_set_opts(
 		NULL,
 		out_channel_layout,                            /*out*/
@@ -168,40 +145,45 @@ void mp_dtaac_start() {
 	while (av_read_frame(formatContext_input, avpkt_in) == 0)
 	{
 		if (avcodec_send_packet(codecContext_input, avpkt_in) == 0)
+
 			if (avcodec_receive_frame(codecContext_input, frameOriginal) == 0)
 			{
 
 				//×ª»»Êý¾Ý¸ñÊ½
-				int ret = swr_convert(swrContext, (uint8_t**)audio_out_buffer, 15, (const uint8_t**)frameOriginal->data, frameOriginal->nb_samples);
+				int ret = swr_convert(swrContext, frameAAC->data, frameOriginal->nb_samples, (const uint8_t**)frameOriginal->data, frameOriginal->nb_samples);
 				if (ret < 0)
 					break;
+
+				fwrite(frameAAC->data[0], 8, frameOriginal->nb_samples / 2, out_Pcm_File);
+				fwrite(frameAAC->data[1], 8, frameOriginal->nb_samples / 2, out_Pcm_File);
 				
 				printf("Êµ¼Êsamples:%d\n", ret);
 
-				//frameAAC->data[0] = audio_out_buffer;
-
 				//Encode
-				frameAAC->pts = av_rescale_q(pst_p, codecContext_output->time_base, stream_output->time_base);
-				if (avcodec_send_frame(codecContext_output, frameAAC) == 0) {
-					if (avcodec_receive_packet(codecContext_output, avpkt_out) == 0)
-					{
+				//frameAAC->pts = 100* pst_p;
 
-						printf("pts:%d--dts:%d--duration:%d--pst_p:%d\n", avpkt_out->pts, avpkt_out->dts, avpkt_out->duration, pst_p++);
+				//printf("frameOriginal->pts:%d\n", frameOriginal->pts);
 
-						int ret = av_write_frame(formatContext_output, avpkt_out);
+				//if (avcodec_send_frame(codecContext_output, frameAAC) == 0) {
+				//	if (avcodec_receive_packet(codecContext_output, avpkt_out) == 0)
+				//	{
 
-						if (ret != 0)
-							printf("write fail %d!\n", ret);
+				//		printf("pts:%d--dts:%d--duration:%d--pst_p:%d\n", avpkt_out->pts, avpkt_out->dts, avpkt_out->duration, pst_p++);
 
-						av_packet_unref(avpkt_out);
+				//		int ret = av_write_frame(formatContext_output, avpkt_out);
 
-					}
-				}
+				//		if (ret != 0)
+				//			printf("write fail %d!\n", ret);
+
+				//		av_packet_unref(avpkt_out);
+
+				//	}
+				//}
 			}
 		av_packet_unref(avpkt_in);
 
 
-		if (pst_p > 1000)
+		if (pst_p++ > 1000)
 			break;
 
 		

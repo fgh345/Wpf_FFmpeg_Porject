@@ -1,7 +1,7 @@
 #include "FFMpegAudioPlay.h"
 
 #include <stdio.h>
-//播放音视频
+//播放音频
 
 extern "C"
 {
@@ -93,7 +93,9 @@ void ffap_load_frame() {
 				//avcodec_receive_frame: 从解码器获取解码后的一帧,0表是解释成功
 				if (ret == 0)
 				{
-					swr_convert(au_convert_ctx, &outBuff, out_buffer_size, (const uint8_t**)ffap_aVframe->data, ffap_aVframe->nb_samples);
+					int ret = swr_convert(au_convert_ctx, &outBuff, out_buffer_size, (const uint8_t**)ffap_aVframe->data, ffap_aVframe->nb_samples);
+
+					printf("实际samples:%d 原:%d \n", ret, ffap_aVframe->nb_samples);
 
 					//fwrite(outBuff, 1, out_buffer_size, ffap_file_out_pcm);
 

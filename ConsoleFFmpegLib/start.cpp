@@ -19,6 +19,7 @@ int main() {
 
 	//cffStart();
 
+	//²¥·ÅÒôÆµ
 	//ffap_start();
 
 	//×ªÂëYUV
