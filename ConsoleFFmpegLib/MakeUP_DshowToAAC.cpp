@@ -83,9 +83,9 @@ void mp_dtaac_start() {
 	codecContext_output->channel_layout = out_channel_layout;
 	codecContext_output->channels = av_get_channel_layout_nb_channels(out_channel_layout);
 	codecContext_output->bit_rate = 128000;
-	//codecContext_output->frame_size = 1024;
-	//codecContext_output->codec_tag = 0;
-	//codecContext_output->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+	codecContext_output->frame_size = 2048;
+	codecContext_output->codec_tag = 0;
+	codecContext_output->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
 
 	avcodec_parameters_from_context(stream_output->codecpar, codecContext_output);
@@ -98,8 +98,6 @@ void mp_dtaac_start() {
 	AVCodec* encoder = avcodec_find_encoder(codecContext_output->codec_id);
 	if (avcodec_open2(codecContext_output, encoder, NULL) < 0)
 		printf("开启编码器失败!");
-
-
 
 	int pst_p = 0;
 
@@ -141,7 +139,6 @@ void mp_dtaac_start() {
 
 	//int64_t time_start= av_gettime();
 
-
 	while (av_read_frame(formatContext_input, avpkt_in) == 0)
 	{
 		if (avcodec_send_packet(codecContext_input, avpkt_in) == 0)
@@ -149,13 +146,17 @@ void mp_dtaac_start() {
 			if (avcodec_receive_frame(codecContext_input, frameOriginal) == 0)
 			{
 
+				//frameAAC->nb_samples = frameOriginal->nb_samples;
+
 				//转换数据格式
 				int ret = swr_convert(swrContext, frameAAC->data, frameOriginal->nb_samples, (const uint8_t**)frameOriginal->data, frameOriginal->nb_samples);
 				if (ret < 0)
 					break;
 
-				fwrite(frameAAC->data[0], 8, frameOriginal->nb_samples / 2, out_Pcm_File);
-				fwrite(frameAAC->data[1], 8, frameOriginal->nb_samples / 2, out_Pcm_File);
+				int count = frameAAC->linesize[0] / 2 / 4;
+
+				fwrite(frameAAC->data[0], 4, count, out_Pcm_File);
+				fwrite(frameAAC->data[1], 4, count, out_Pcm_File);
 				
 				printf("实际samples:%d\n", ret);
 
@@ -191,7 +192,7 @@ void mp_dtaac_start() {
 
 
 	//Write file trailer
-	av_write_trailer(formatContext_output);
+	//av_write_trailer(formatContext_output);
 
 	//Clean
 	if (stream_output) {
