@@ -10,6 +10,7 @@
 #include "FFmpegEncodePCM.h"
 #include "MakeUP_DshowToH264.h"
 #include "MakeUP_DshowToAAC.h"
+#include "AnalysisAAC.h"
 
 int main() {
 
@@ -37,12 +38,21 @@ int main() {
 	//pc.simplest_pcm16le_cut_singlechannel((char*)"..\\..\\Test_drum.pcm", 2360, 120);
 	//pc.simplest_pcm16le_cut_singlechannel2((char*)"..\\..\\Test_drum.pcm", 2360, 120);
 
-	//short twoB = 4367;
-	//short* ptwoB = &twoB;
+	//int* arrayByte = new int[4];
+	//int** tem = (int**)arrayByte;
 
-	//char* oneB = (char*)ptwoB;
+	//for (size_t i = 0; i < 4; i++)
+	//{
+	//	printf("arrayByte地址:%p\n", arrayByte + i);
+	//}
 
-	//printf("AA:%d\n", ptwoB);
+	//printf("\n");
+
+	//for (size_t i = 0; i < 4; i++)
+	//{
+	//	printf("temayByte地址:%p\n", tem+i);
+	//}
+
 	//printf("BB:%d\n", oneB[1]);
 	//printf("CC:%d\n", *(oneB + 1));
 	//printf("DD:%d\n",oneB);
@@ -54,6 +64,9 @@ int main() {
 
 	//读取dshow设备编码为aac
 	mp_dtaac_start();
+
+		//分析aac音频
+	//ans_aac_start();
 
 	return 0;
 }

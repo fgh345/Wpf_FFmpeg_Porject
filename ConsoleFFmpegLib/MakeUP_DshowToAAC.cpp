@@ -31,8 +31,10 @@ void mp_dtaac_start() {
 	//}
 
 	AVDictionary* options = NULL;
+	av_dict_set(&options, "bit_rate", "128000", 0);
 	//av_dict_set(&options, "list_devices", "true", 0);
-	//av_dict_set(&options, "list_options", "true", 0);
+	/*av_dict_set(&options, "list_options", "true", 0);*/
+
 
 	AVFormatContext* formatContext_input = avformat_alloc_context();
 
@@ -64,7 +66,7 @@ void mp_dtaac_start() {
 	uint64_t out_channel_layout = AV_CH_LAYOUT_STEREO;
 
 	AVFormatContext* formatContext_output;
-	avformat_alloc_output_context2(&formatContext_output, av_guess_format("", ".aac", NULL), NULL, NULL);
+	avformat_alloc_output_context2(&formatContext_output, av_guess_format("", ".ac3", NULL), NULL, NULL);
 
 	//Open output URL
 	if (avio_open(&formatContext_output->pb, file_out_path, AVIO_FLAG_READ_WRITE) < 0) {
@@ -83,9 +85,10 @@ void mp_dtaac_start() {
 	codecContext_output->channel_layout = out_channel_layout;
 	codecContext_output->channels = av_get_channel_layout_nb_channels(out_channel_layout);
 	codecContext_output->bit_rate = 128000;
-	codecContext_output->frame_size = 2048;
-	codecContext_output->codec_tag = 0;
-	codecContext_output->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+	codecContext_output->frame_size = 1024;
+	codecContext_output->qmax = 31;
+	codecContext_output->qmin = 2;
+	codecContext_output->max_qdiff = 3;
 
 
 	avcodec_parameters_from_context(stream_output->codecpar, codecContext_output);
@@ -149,37 +152,44 @@ void mp_dtaac_start() {
 				//frameAAC->nb_samples = frameOriginal->nb_samples;
 
 				//转换数据格式
-				int ret = swr_convert(swrContext, frameAAC->data, frameOriginal->nb_samples, (const uint8_t**)frameOriginal->data, frameOriginal->nb_samples);
+				int ret = swr_convert(swrContext, frameAAC->data, 1024, (const uint8_t**)frameOriginal->data, frameOriginal->nb_samples);
 				if (ret < 0)
 					break;
 
-				int count = frameAAC->linesize[0] / 2 / 4;
+				//int count = frameAAC->linesize[0] / 2 / 4;
 
-				fwrite(frameAAC->data[0], 4, count, out_Pcm_File);
-				fwrite(frameAAC->data[1], 4, count, out_Pcm_File);
+				//fwrite(frameAAC->data[0], 4, count, out_Pcm_File);
+				//fwrite(frameAAC->data[1], 4, count, out_Pcm_File);
 				
-				printf("实际samples:%d\n", ret);
+				//float* temptr = (float*)frameAAC->data[0];
+
+				//for (int i = 0; i < count; i++)
+				//{
+				//	printf(" %f ", *(temptr + i));
+				//}
+				//printf("\n");
+				
 
 				//Encode
-				//frameAAC->pts = 100* pst_p;
+				frameAAC->pts = 307200 * pst_p;
 
-				//printf("frameOriginal->pts:%d\n", frameOriginal->pts);
+				printf("frameOriginal->pts:%d\n", frameOriginal->pts);
 
-				//if (avcodec_send_frame(codecContext_output, frameAAC) == 0) {
-				//	if (avcodec_receive_packet(codecContext_output, avpkt_out) == 0)
-				//	{
+				if (avcodec_send_frame(codecContext_output, frameAAC) == 0) {
+					if (avcodec_receive_packet(codecContext_output, avpkt_out) == 0)
+					{
 
-				//		printf("pts:%d--dts:%d--duration:%d--pst_p:%d\n", avpkt_out->pts, avpkt_out->dts, avpkt_out->duration, pst_p++);
+						printf("pts:%d--dts:%d--duration:%d--pst_p:%d\n", avpkt_out->pts, avpkt_out->dts, avpkt_out->duration, pst_p++);
 
-				//		int ret = av_write_frame(formatContext_output, avpkt_out);
+						int ret = av_write_frame(formatContext_output, avpkt_out);
 
-				//		if (ret != 0)
-				//			printf("write fail %d!\n", ret);
+						if (ret != 0)
+							printf("write fail %d!\n", ret);
 
-				//		av_packet_unref(avpkt_out);
+						av_packet_unref(avpkt_out);
 
-				//	}
-				//}
+					}
+				}
 			}
 		av_packet_unref(avpkt_in);
 
@@ -192,7 +202,7 @@ void mp_dtaac_start() {
 
 
 	//Write file trailer
-	//av_write_trailer(formatContext_output);
+	av_write_trailer(formatContext_output);
 
 	//Clean
 	if (stream_output) {

@@ -152,6 +152,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="AnalysisAAC.h" />
     <ClInclude Include="ConsoleFFmpegLib.h" />
     <ClInclude Include="FFMpegAudioPlay.h" />
     <ClInclude Include="FFmpegEncodePCM.h" />
@@ -165,6 +166,7 @@
     <ClInclude Include="SDL_LoadImg.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AnalysisAAC.cpp" />
     <ClCompile Include="ConsoleFFmpegLib.cpp" />
     <ClCompile Include="FFMpegAudioPlay.cpp" />
     <ClCompile Include="FFmpegEncodePCM.cpp" />
