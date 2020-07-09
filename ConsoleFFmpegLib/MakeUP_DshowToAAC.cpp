@@ -1,5 +1,4 @@
 #include "MakeUP_DshowToAAC.h"
-
 extern "C"
 {
 #include "libavcodec/avcodec.h"
@@ -10,6 +9,16 @@ extern "C"
 #include "SDL.h"
 };
 
+#include <iostream>
+
+int XError(int errNum)
+{
+	char buf[1024] = { 0 };
+	av_strerror(errNum,buf,sizeof(buf));
+	std::cout << buf << std::endl;
+
+	return -1;
+}
 
 void mp_dtaac_start() {
 
@@ -22,6 +31,8 @@ void mp_dtaac_start() {
 	fopen_s(&out_Pcm_File, "result_file_microphone.pcm", "wb+");
 
 	avdevice_register_all();
+
+	//avformat_network_init();
 
 	//void* i = 0;
 	//const AVInputFormat* aa = NULL;
@@ -65,8 +76,8 @@ void mp_dtaac_start() {
 	AVSampleFormat out_sample_fmt = AV_SAMPLE_FMT_FLTP;
 	uint64_t out_channel_layout = AV_CH_LAYOUT_STEREO;
 
-	AVFormatContext* formatContext_output;
-	avformat_alloc_output_context2(&formatContext_output, av_guess_format("", ".ac3", NULL), NULL, NULL);
+	AVFormatContext* formatContext_output;//av_guess_format("", ".ac3", NULL)
+	avformat_alloc_output_context2(&formatContext_output, NULL, NULL, file_out_path);
 
 	//Open output URL
 	if (avio_open(&formatContext_output->pb, file_out_path, AVIO_FLAG_READ_WRITE) < 0) {
@@ -105,11 +116,10 @@ void mp_dtaac_start() {
 	int pst_p = 0;
 
 	//准备解码
-	AVPacket* avpkt_in = av_packet_alloc();
-	av_init_packet(avpkt_in);
+	AVPacket avpkt_in;
 
 	AVPacket* avpkt_out = av_packet_alloc();
-	av_init_packet(avpkt_out);
+	//av_init_packet(avpkt_out);
 
 	AVFrame* frameOriginal = av_frame_alloc();
 	AVFrame* frameAAC = av_frame_alloc();
@@ -142,9 +152,9 @@ void mp_dtaac_start() {
 
 	//int64_t time_start= av_gettime();
 
-	while (av_read_frame(formatContext_input, avpkt_in) == 0)
+	while (av_read_frame(formatContext_input, &avpkt_in) == 0)
 	{
-		if (avcodec_send_packet(codecContext_input, avpkt_in) == 0)
+		if (avcodec_send_packet(codecContext_input, &avpkt_in) == 0)
 
 			if (avcodec_receive_frame(codecContext_input, frameOriginal) == 0)
 			{
@@ -153,8 +163,7 @@ void mp_dtaac_start() {
 
 				//转换数据格式
 				int ret = swr_convert(swrContext, frameAAC->data, 1024, (const uint8_t**)frameOriginal->data, frameOriginal->nb_samples);
-				if (ret < 0)
-					break;
+				XError(ret);
 
 				//int count = frameAAC->linesize[0] / 2 / 4;
 
@@ -181,17 +190,17 @@ void mp_dtaac_start() {
 
 						printf("pts:%d--dts:%d--duration:%d--pst_p:%d\n", avpkt_out->pts, avpkt_out->dts, avpkt_out->duration, pst_p++);
 
-						int ret = av_write_frame(formatContext_output, avpkt_out);
+						int ret = av_interleaved_write_frame(formatContext_output, avpkt_out);
 
 						if (ret != 0)
 							printf("write fail %d!\n", ret);
 
-						av_packet_unref(avpkt_out);
+						//av_packet_unref(avpkt_out);
 
 					}
 				}
 			}
-		av_packet_unref(avpkt_in);
+		av_packet_unref(&avpkt_in);
 
 
 		if (pst_p++ > 1000)
