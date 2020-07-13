@@ -14,7 +14,7 @@ extern "C"
 int XError(int errNum)
 {
 	char buf[1024] = { 0 };
-	av_strerror(errNum,buf,sizeof(buf));
+	av_strerror(errNum, buf, sizeof(buf));
 	std::cout << buf << std::endl;
 
 	return -1;
@@ -24,11 +24,8 @@ void mp_dtaac_start() {
 
 	char device_in_url[] = "audio=virtual-audio-capturer";//HKZ (Realtek High Definition Audio(SST)) | ub570 (TC-UB570, Audio Capture) | virtual-audio-capturer
 	char file_out_path[] = "result_file_microphone_to_aac.aac";
-	FILE* out_Pcm_File;
 	//char file_out_path[] = "rtmp://192.168.30.20/live/livestream"; //推流地址
 	//配置输入
-
-	fopen_s(&out_Pcm_File, "result_file_microphone.pcm", "wb+");
 
 	avdevice_register_all();
 
@@ -42,7 +39,6 @@ void mp_dtaac_start() {
 	//}
 
 	AVDictionary* options = NULL;
-	av_dict_set(&options, "bit_rate", "128000", 0);
 	//av_dict_set(&options, "list_devices", "true", 0);
 	/*av_dict_set(&options, "list_options", "true", 0);*/
 
@@ -56,7 +52,7 @@ void mp_dtaac_start() {
 	avformat_find_stream_info(formatContext_input, NULL);
 
 	AVStream* stream_input = formatContext_input->streams[0];
-	
+
 	//打印输入流信息
 	av_dump_format(formatContext_input, 0, device_in_url, 0);
 
@@ -86,8 +82,8 @@ void mp_dtaac_start() {
 	}
 
 	AVStream* stream_output = avformat_new_stream(formatContext_output, NULL);
-	stream_output->time_base = stream_input->time_base;
-	
+	stream_output->codecpar->codec_tag = 0;
+
 	AVCodecContext* codecContext_output = avcodec_alloc_context3(NULL);
 	codecContext_output->codec_id = formatContext_output->oformat->audio_codec;//编码器id
 	codecContext_output->codec_type = AVMEDIA_TYPE_AUDIO;//编码器类型
@@ -96,10 +92,7 @@ void mp_dtaac_start() {
 	codecContext_output->channel_layout = out_channel_layout;
 	codecContext_output->channels = av_get_channel_layout_nb_channels(out_channel_layout);
 	codecContext_output->bit_rate = 128000;
-	codecContext_output->frame_size = 1024;
-	codecContext_output->qmax = 31;
-	codecContext_output->qmin = 2;
-	codecContext_output->max_qdiff = 3;
+	codecContext_output->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
 
 	avcodec_parameters_from_context(stream_output->codecpar, codecContext_output);
@@ -123,14 +116,14 @@ void mp_dtaac_start() {
 
 	AVFrame* frameOriginal = av_frame_alloc();
 	AVFrame* frameAAC = av_frame_alloc();
-	
+
 	frameAAC->nb_samples = 1024;
 	frameAAC->format = out_sample_fmt;
 	frameAAC->channel_layout = out_channel_layout;
 	frameAAC->channels = av_get_channel_layout_nb_channels(out_channel_layout);
-	frameAAC->sample_rate = out_sample_rate;
+	//frameAAC->sample_rate = out_sample_rate;
 
-	av_frame_get_buffer(frameAAC, 1);
+	av_frame_get_buffer(frameAAC, 0);
 
 	//配置音频编码转换
 	SwrContext* swrContext = swr_alloc_set_opts(
@@ -150,63 +143,58 @@ void mp_dtaac_start() {
 	//写入文件头
 	avformat_write_header(formatContext_output, NULL);
 
-	//int64_t time_start= av_gettime();
+	for (;;) {
+		if (av_read_frame(formatContext_input, &avpkt_in) == 0)
+		{
+			if (avcodec_send_packet(codecContext_input, &avpkt_in) == 0)
 
-	while (av_read_frame(formatContext_input, &avpkt_in) == 0)
-	{
-		if (avcodec_send_packet(codecContext_input, &avpkt_in) == 0)
+				if (avcodec_receive_frame(codecContext_input, frameOriginal) == 0)
+				{
 
-			if (avcodec_receive_frame(codecContext_input, frameOriginal) == 0)
-			{
+					//转换数据格式
+					int ret = swr_convert(swrContext, frameAAC->data, frameOriginal->nb_samples, (const uint8_t**)frameOriginal->data, frameOriginal->nb_samples);
+					
+					//pts 计算
+					// second = nb_samples/sample_rate   一帧音频的秒数
+					// pts = second/timebase 
 
-				//frameAAC->nb_samples = frameOriginal->nb_samples;
+					//Encode
 
-				//转换数据格式
-				int ret = swr_convert(swrContext, frameAAC->data, 1024, (const uint8_t**)frameOriginal->data, frameOriginal->nb_samples);
-				XError(ret);
+					int rpts = av_rescale_q(frameOriginal->nb_samples, codecContext_output->time_base, stream_output->time_base);
 
-				//int count = frameAAC->linesize[0] / 2 / 4;
+					frameAAC->pts = pst_p++ + rpts;
 
-				//fwrite(frameAAC->data[0], 4, count, out_Pcm_File);
-				//fwrite(frameAAC->data[1], 4, count, out_Pcm_File);
-				
-				//float* temptr = (float*)frameAAC->data[0];
+					printf("原始pts: %d!\n", frameAAC->pts);
 
-				//for (int i = 0; i < count; i++)
-				//{
-				//	printf(" %f ", *(temptr + i));
-				//}
-				//printf("\n");
-				
+					if (avcodec_send_frame(codecContext_output, frameAAC) == 0) {
+						if (avcodec_receive_packet(codecContext_output, avpkt_out) == 0)
+						{
 
-				//Encode
-				frameAAC->pts = 307200 * pst_p;
+							if (avpkt_out->size > 0) {
 
-				printf("frameOriginal->pts:%d\n", frameOriginal->pts);
+								avpkt_out->pts = av_rescale_q(avpkt_out->pts, codecContext_output->time_base, stream_output->time_base);// 前面是原始的 ,后面是要转换成为的
+								avpkt_out->dts = av_rescale_q(avpkt_out->dts, codecContext_output->time_base, stream_output->time_base);
+								avpkt_out->duration = av_rescale_q(avpkt_out->duration, codecContext_output->time_base, stream_output->time_base);
 
-				if (avcodec_send_frame(codecContext_output, frameAAC) == 0) {
-					if (avcodec_receive_packet(codecContext_output, avpkt_out) == 0)
-					{
+								printf("输出pts: %d!\n", avpkt_out->pts);
 
-						printf("pts:%d--dts:%d--duration:%d--pst_p:%d\n", avpkt_out->pts, avpkt_out->dts, avpkt_out->duration, pst_p++);
-
-						int ret = av_interleaved_write_frame(formatContext_output, avpkt_out);
-
-						if (ret != 0)
-							printf("write fail %d!\n", ret);
-
-						//av_packet_unref(avpkt_out);
-
+								ret = av_interleaved_write_frame(formatContext_output, avpkt_out);
+								//if (!ret)
+								//{
+								//	XError(ret);
+								//}
+							}
+						}
 					}
 				}
-			}
-		av_packet_unref(&avpkt_in);
+			av_packet_unref(&avpkt_in);
 
 
-		if (pst_p++ > 1000)
-			break;
+			if (pst_p++ > 3000)
+				break;
 
-		
+
+		}
 	}
 
 
