@@ -37,7 +37,10 @@ void mp_dtaac_start() {
 
 	AVInputFormat* fmt = av_find_input_format("dshow");
 
-	avformat_open_input(&formatContext_input, device_in_url, fmt, NULL);
+	AVDictionary* options = NULL;
+	//av_dict_set(&options, "list_devices", "true", 0);
+
+	avformat_open_input(&formatContext_input, device_in_url, fmt, &options);
 
 	avformat_find_stream_info(formatContext_input, NULL);
 
