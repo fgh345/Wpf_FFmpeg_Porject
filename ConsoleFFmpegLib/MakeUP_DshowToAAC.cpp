@@ -6,10 +6,13 @@ extern "C"
 #include "libswresample/swresample.h"
 #include "libavdevice/avdevice.h"
 #include "libavutil/time.h"
-#include "SDL.h"
+#include "libavfilter/buffersink.h"
+#include "libavfilter/buffersrc.h"
 };
 
 #include <iostream>
+#include <thread>
+using namespace std;
 
 int XError(int errNum)
 {
@@ -68,7 +71,7 @@ void mp_dtaac_start() {
 	/// </summary>
 
 
-	int out_sample_rate = 48000;
+	int out_sample_rate = 44100;
 	AVSampleFormat out_sample_fmt = AV_SAMPLE_FMT_FLTP;
 	uint64_t out_channel_layout = AV_CH_LAYOUT_STEREO;
 
@@ -111,74 +114,147 @@ void mp_dtaac_start() {
 
 	AVPacket* avpkt_in = av_packet_alloc();
 	AVPacket* avpkt_out = av_packet_alloc();
+
 	AVFrame* frameOriginal = av_frame_alloc();
 	AVFrame* frameAAC = av_frame_alloc();
-
-	frameAAC->nb_samples = 1024;
-	frameAAC->format = out_sample_fmt;
-	frameAAC->channel_layout = out_channel_layout;
-	frameAAC->channels = av_get_channel_layout_nb_channels(out_channel_layout);
-
-	av_frame_get_buffer(frameAAC, 0);
-
-	//配置音频编码转换
-	SwrContext* swrContext = swr_alloc_set_opts(
-		NULL,
-		out_channel_layout,                            /*out*/
-		out_sample_fmt,                                 /*out*/
-		out_sample_rate,                                /*out*/
-		av_get_default_channel_layout(codecContext_input->channels),/*in 默认情况 声道布局可能是空的 这里通过声道数 获取一个默认的声道布局*/
-		codecContext_input->sample_fmt,                 /*in*/
-		codecContext_input->sample_rate,                /*in*/
-		0,
-		NULL);
-
-	swr_init(swrContext);
-
 
 	//写入文件头
 	avformat_write_header(formatContext_output, NULL);
 
+	//配置过滤器 重新采用音频
+	char args[512];
+	const AVFilter* abuffersrc = avfilter_get_by_name("abuffer");
+	const AVFilter* abuffersink = avfilter_get_by_name("abuffersink");
+	AVFilterInOut* outputs = avfilter_inout_alloc();
+	AVFilterInOut* inputs = avfilter_inout_alloc();
+
+	AVFilterContext* buffer_src_ctx;
+	AVFilterContext* buffer_sink_ctx;
+	AVFilterGraph* filter_graph = avfilter_graph_alloc();
+	filter_graph->nb_threads = 1;
+
+	sprintf_s(args, sizeof(args),
+		"time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%I64x",
+		stream_input->time_base.num,
+		stream_input->time_base.den,
+		stream_input->codecpar->sample_rate,
+		av_get_sample_fmt_name((AVSampleFormat)stream_input->codecpar->format),
+		av_get_default_channel_layout(codecContext_input->channels));
+
+	printf("args_in:%s \n", args);
+
+	int ret = avfilter_graph_create_filter(&buffer_src_ctx, abuffersrc, "in",
+		args, NULL, filter_graph);
+	if (ret != 0)
+	{
+		XError(ret);
+	}
+
+	ret = avfilter_graph_create_filter(&buffer_sink_ctx, abuffersink, "out",
+		NULL, NULL, filter_graph);
+	if (ret != 0)
+	{
+		XError(ret);
+	}
+
+	static const enum AVSampleFormat out_sample_fmts[] = { AV_SAMPLE_FMT_FLTP, AV_SAMPLE_FMT_NONE };
+	static const int64_t out_channel_layouts[] = { stream_output->codecpar->channel_layout, -1 };
+	static const int out_sample_rates[] = { stream_output->codecpar->sample_rate , -1 };
+
+	ret = av_opt_set_int_list(buffer_sink_ctx, "sample_fmts", out_sample_fmts, -1,
+		AV_OPT_SEARCH_CHILDREN);
+	ret = av_opt_set_int_list(buffer_sink_ctx, "channel_layouts", out_channel_layouts, -1,
+		AV_OPT_SEARCH_CHILDREN);
+	ret = av_opt_set_int_list(buffer_sink_ctx, "sample_rates", out_sample_rates, -1,
+		AV_OPT_SEARCH_CHILDREN);
+
+	outputs->name = av_strdup("in");
+	outputs->filter_ctx = buffer_src_ctx;;
+	outputs->pad_idx = 0;
+	outputs->next = NULL;
+
+	inputs->name = av_strdup("out");
+	inputs->filter_ctx = buffer_sink_ctx;
+	inputs->pad_idx = 0;
+	inputs->next = NULL;
+
+	ret = avfilter_graph_parse_ptr(filter_graph, "anull", &inputs, &outputs, nullptr);
+	if (ret < 0)
+	{
+		XError(ret);
+	}
+
+	ret = avfilter_graph_config(filter_graph, NULL);
+	if (ret != 0)
+	{
+		XError(ret);
+	}
+
+	av_buffersink_set_frame_size(buffer_sink_ctx, 1024);
+
 	for (;;) {
 		if (av_read_frame(formatContext_input, avpkt_in) == 0)
 		{
+
+			if (0 >= avpkt_in->size)
+			{
+				continue;
+			}
+
 			if (avcodec_send_packet(codecContext_input, avpkt_in) == 0)
 
 				if (avcodec_receive_frame(codecContext_input, frameOriginal) == 0)
 				{
 
+					//pst_p += av_rescale_q(frameOriginal->nb_samples, codecContext_output->time_base, stream_output->time_base);
+
+					//printf("%d ", pst_p);
+
 					//转换数据格式
-					int ret = swr_convert(swrContext, frameAAC->data, frameAAC->nb_samples, (const uint8_t**)frameOriginal->data, frameOriginal->nb_samples);
-					
+					ret = av_buffersrc_add_frame_flags(buffer_src_ctx, frameOriginal, AV_BUFFERSRC_FLAG_PUSH);
+					if (ret < 0)
+					{
+						XError(ret);
+					}
+
+					ret = av_buffersink_get_frame_flags(buffer_sink_ctx, frameAAC, AV_BUFFERSINK_FLAG_NO_REQUEST);
+					if (ret < 0)
+					{
+						continue;
+					}
 
 					//pts 计算
 					// second = nb_samples/sample_rate   一帧音频的秒数
 					// pts = second/timebase 
 
 					//Encode
+					//AVRational itime = stream_input->time_base;
+					//AVRational otime = stream_output->time_base;
 
-					AVRational itime = stream_input->time_base;
-					AVRational otime = stream_output->time_base;
 
-					pst_p += av_rescale_q_rnd(frameAAC->nb_samples, itime, otime, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
 
-					//frameAAC->pts = pst_p;
-					//printf("++++++++++++++++++++++++++++++:%d \n", frameAAC->pts);
+					frameAAC->pts = pst_p;
+
+					pst_p += av_rescale_q(frameAAC->nb_samples, codecContext_output->time_base, stream_output->time_base);
 
 					if (avcodec_send_frame(codecContext_output, frameAAC) == 0) {
 						if (avcodec_receive_packet(codecContext_output, avpkt_out) == 0)
 						{
 							if (avpkt_out->size > 0) {
 
-								avpkt_out->pts = av_rescale_q_rnd(avpkt_in->pts, itime, otime, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));// 前面是原始的 ,后面是要转换成为的
-								avpkt_out->dts = av_rescale_q_rnd(avpkt_in->dts, itime, otime, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
-								avpkt_out->duration = av_rescale_q_rnd(avpkt_in->duration, itime, otime, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
+								//avpkt_out->pts = av_rescale_q_rnd(avpkt_in->pts, itime, otime, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));// 前面是原始的 ,后面是要转换成为的
+								//avpkt_out->dts = av_rescale_q_rnd(avpkt_in->dts, itime, otime, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
+								//avpkt_out->duration = av_rescale_q_rnd(avpkt_in->duration, itime, otime, (AVRounding)(AV_ROUND_NEAR_INF | AV_ROUND_PASS_MINMAX));
+
+								avpkt_out->pts = av_rescale_q(avpkt_out->pts, codecContext_output->time_base, stream_output->time_base);// 前面是原始的 ,后面是要转换成为的
+								avpkt_out->dts = av_rescale_q(avpkt_out->dts, codecContext_output->time_base, stream_output->time_base);
+								avpkt_out->duration = av_rescale_q(avpkt_out->duration, codecContext_output->time_base, stream_output->time_base);
 								avpkt_out->pos = -1;
 
-								printf("pst_p:%d,pts:%d,dts:%d,size:%d,duration:%d\n", pst_p,avpkt_out->pts, avpkt_out->dts, avpkt_out->size, avpkt_out->duration);
+								printf("pst_p:%d,pts:%d,dts:%d,size:%d,duration:%d\n", pst_p, avpkt_out->pts, avpkt_out->dts, avpkt_out->size, avpkt_out->duration);
 
 								ret = av_interleaved_write_frame(formatContext_output, avpkt_out);
-								if (ret!=0)
+								if (ret != 0)
 								{
 									XError(ret);
 								}
@@ -190,6 +266,7 @@ void mp_dtaac_start() {
 
 		}
 	}
+	
 
 	//Write file trailer
 	av_write_trailer(formatContext_output);
@@ -201,5 +278,4 @@ void mp_dtaac_start() {
 	}
 	avio_close(formatContext_output->pb);
 	avformat_free_context(formatContext_output);
-	swr_free(&swrContext);
 }
