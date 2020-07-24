@@ -58,7 +58,7 @@ int cffStart()
 	//char url[] = "rtmp://live.hkstv.hk.lxdns.com/live/hks";
 
 	//char url[] = "video=Intel(R) AVStream Camera";
-	char url[] = "..\\..\\Test_vedio.mp4";
+	char url[] = "..\\..\\result_file.flv";
 	int init_ret = init_ffmpeg(url);
 	if (init_ret >= 0)
 	{
