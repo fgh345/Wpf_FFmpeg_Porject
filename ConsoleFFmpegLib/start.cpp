@@ -18,10 +18,10 @@ int main() {
 
 	//initSDL_LoadImg();
 
-	cffStart();
+	//cffStart();
 
 	//²¥·ÅÒôÆµ
-	//ffap_start();
+	ffap_start();
 
 	//×ªÂëYUV
 	//ffecyuv_start();
