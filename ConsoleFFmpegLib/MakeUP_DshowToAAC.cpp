@@ -25,7 +25,7 @@ int XError(int errNum)
 
 void mp_dtaac_start() {
 
-	char device_in_url[] = "audio=virtual-audio-capturer";//HKZ (Realtek High Definition Audio(SST)) | ub570 (TC-UB570, Audio Capture) | virtual-audio-capturer
+	char device_in_url[] = "audio=HKZ (Realtek(R) Audio)";//HKZ (Realtek High Definition Audio(SST)) | ub570 (TC-UB570, Audio Capture) | virtual-audio-capturer | HKZ (Realtek(R) Audio)
 	char file_out_path[] = "result_file_microphone_to_aac.aac";
 	//char file_out_path[] = "rtmp://49.232.191.221/live/hkz"; //推流地址
 	//配置输入
@@ -206,6 +206,8 @@ void mp_dtaac_start() {
 				if (avcodec_receive_frame(codecContext_input, frameOriginal) == 0)
 				{
 
+					std::cout << "@";
+
 					//pst_p += av_rescale_q(frameOriginal->nb_samples, codecContext_output->time_base, stream_output->time_base);
 
 					//printf("%d ", pst_p);
@@ -251,7 +253,7 @@ void mp_dtaac_start() {
 								avpkt_out->duration = av_rescale_q(avpkt_out->duration, codecContext_output->time_base, stream_output->time_base);
 								avpkt_out->pos = -1;
 
-								printf("pst_p:%d,pts:%d,dts:%d,size:%d,duration:%d\n", pst_p, avpkt_out->pts, avpkt_out->dts, avpkt_out->size, avpkt_out->duration);
+								//printf("pst_p:%d,pts:%d,dts:%d,size:%d,duration:%d\n", pst_p, avpkt_out->pts, avpkt_out->dts, avpkt_out->size, avpkt_out->duration);
 
 								ret = av_interleaved_write_frame(formatContext_output, avpkt_out);
 								if (ret != 0)

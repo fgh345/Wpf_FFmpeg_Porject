@@ -21,7 +21,7 @@ int main() {
 	//cffStart();
 
 	//播放音频
-	ffap_start();
+	//ffap_start();
 
 	//转码YUV
 	//ffecyuv_start();
@@ -63,7 +63,7 @@ int main() {
 	//mp_dth264_start();
 
 	//读取dshow设备编码为aac
-	//mp_dtaac_start();
+	mp_dtaac_start();
 
 		//分析aac音频
 	//ans_aac_start();
